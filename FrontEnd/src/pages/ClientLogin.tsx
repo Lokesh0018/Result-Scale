@@ -1,21 +1,61 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BarChart3, ArrowLeft, Building2 } from 'lucide-react'
+import { useToast } from '../components/Toast'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/auth.css'
 
 function ClientLogin() {
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     remember: false
   })
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
+
+  const validateForm = () => {
+    const newErrors: { email?: string; password?: string } = {}
+    
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address'
+    }
+    
+    if (!formData.password) {
+      newErrors.password = 'Password is required'
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters'
+    }
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // In a real app, you would authenticate here
-    navigate('/client/dashboard')
+    
+    if (!validateForm()) {
+      const errorMessages = Object.values(errors).filter(Boolean)
+      if (errorMessages.length > 0) {
+        showToast(errorMessages[0] || 'Please fill in all required fields', 'error')
+      }
+      return
+    }
+
+    showToast('Login successful! Redirecting...', 'success')
+    setTimeout(() => {
+      navigate('/client/dashboard')
+    }, 1000)
+  }
+
+  const handleInputChange = (field: string, value: string | boolean) => {
+    setFormData({ ...formData, [field]: value })
+    if (errors[field as keyof typeof errors]) {
+      setErrors({ ...errors, [field]: undefined })
+    }
   }
 
   return (
@@ -45,12 +85,12 @@ function ClientLogin() {
               <input
                 id="email"
                 type="email"
-                className="form-input"
+                className={`form-input ${errors.email ? 'input-error' : ''}`}
                 placeholder="institution@example.com"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
+                onChange={(e) => handleInputChange('email', e.target.value)}
               />
+              {errors.email && <span className="form-error">{errors.email}</span>}
             </div>
             
             <div className="form-group">
@@ -58,12 +98,12 @@ function ClientLogin() {
               <input
                 id="password"
                 type="password"
-                className="form-input"
+                className={`form-input ${errors.password ? 'input-error' : ''}`}
                 placeholder="Enter your password"
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
+                onChange={(e) => handleInputChange('password', e.target.value)}
               />
+              {errors.password && <span className="form-error">{errors.password}</span>}
             </div>
             
             <div className="form-row">
@@ -71,7 +111,7 @@ function ClientLogin() {
                 <input
                   type="checkbox"
                   checked={formData.remember}
-                  onChange={(e) => setFormData({ ...formData, remember: e.target.checked })}
+                  onChange={(e) => handleInputChange('remember', e.target.checked)}
                 />
                 Remember me
               </label>

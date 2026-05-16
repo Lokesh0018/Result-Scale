@@ -1,20 +1,60 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BarChart3, ArrowLeft, GraduationCap } from 'lucide-react'
+import { useToast } from '../components/Toast'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/auth.css'
 
 function StudentLogin() {
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const [formData, setFormData] = useState({
     rollNumber: '',
     email: ''
   })
+  const [errors, setErrors] = useState<{ rollNumber?: string; email?: string }>({})
+
+  const validateForm = () => {
+    const newErrors: { rollNumber?: string; email?: string } = {}
+    
+    if (!formData.rollNumber.trim()) {
+      newErrors.rollNumber = 'Roll number is required'
+    } else if (formData.rollNumber.length < 3) {
+      newErrors.rollNumber = 'Please enter a valid roll number'
+    }
+    
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address'
+    }
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // In a real app, you would send OTP here
-    navigate('/student/verify-otp')
+    
+    if (!validateForm()) {
+      const errorMessages = Object.values(errors).filter(Boolean)
+      if (errorMessages.length > 0) {
+        showToast(errorMessages[0] || 'Please fill in all required fields', 'error')
+      }
+      return
+    }
+
+    showToast('OTP sent to your email address!', 'success')
+    setTimeout(() => {
+      navigate('/student/verify-otp')
+    }, 1000)
+  }
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData({ ...formData, [field]: value })
+    if (errors[field as keyof typeof errors]) {
+      setErrors({ ...errors, [field]: undefined })
+    }
   }
 
   return (
@@ -44,12 +84,12 @@ function StudentLogin() {
               <input
                 id="rollNumber"
                 type="text"
-                className="form-input"
+                className={`form-input ${errors.rollNumber ? 'input-error' : ''}`}
                 placeholder="e.g., 2024CS001"
                 value={formData.rollNumber}
-                onChange={(e) => setFormData({ ...formData, rollNumber: e.target.value })}
-                required
+                onChange={(e) => handleInputChange('rollNumber', e.target.value)}
               />
+              {errors.rollNumber && <span className="form-error">{errors.rollNumber}</span>}
             </div>
             
             <div className="form-group">
@@ -57,12 +97,12 @@ function StudentLogin() {
               <input
                 id="email"
                 type="email"
-                className="form-input"
+                className={`form-input ${errors.email ? 'input-error' : ''}`}
                 placeholder="your.email@example.com"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
+                onChange={(e) => handleInputChange('email', e.target.value)}
               />
+              {errors.email && <span className="form-error">{errors.email}</span>}
             </div>
             
             <button type="submit" className="btn btn-primary auth-submit">

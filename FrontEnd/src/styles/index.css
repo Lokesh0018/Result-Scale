@@ -6,11 +6,12 @@
 }
 
 :root {
-  /* Colors */
+  /* Colors - Light Mode */
   --color-primary: #EF1C25;
   --color-primary-hover: #d91920;
   --color-background: #F5F5F5;
   --color-white: #FFFFFF;
+  --color-card: #FFFFFF;
   --color-text: #1a1a1a;
   --color-text-muted: #6b7280;
   --color-border: #e5e7eb;
@@ -55,6 +56,19 @@
   --line-height-tight: 1.25;
   --line-height-normal: 1.5;
   --line-height-relaxed: 1.625;
+}
+
+/* Dark Mode */
+[data-theme="dark"] {
+  --color-background: #111827;
+  --color-white: #1f2937;
+  --color-card: #1f2937;
+  --color-text: #f9fafb;
+  --color-text-muted: #9ca3af;
+  --color-border: #374151;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
 }
 
 html {
