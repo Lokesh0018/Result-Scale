@@ -3,10 +3,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { 
   BarChart3, LayoutDashboard, Upload, Users, Settings, LogOut, 
   Bell, Search, Menu, X, FileText, UserCheck, Eye, Plus, Pencil, Trash2,
-  Mail, Calendar, Shield, Building2
+  Mail, Calendar, Shield, Building2, MoonStar, Sun
 } from 'lucide-react'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/dashboard.css'
+import { useTheme } from "../components/ThemeProvider";
 
 const mockStudents = [
   { id: 1, rollNo: '2024CS001', name: 'John Doe', email: 'john@email.com', semester: 4, sgpa: 8.5, cgpa: 8.2, status: 'published' },
@@ -17,6 +18,7 @@ const mockStudents = [
 ]
 
 function ClientDashboard() {
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('dashboard')
@@ -115,8 +117,8 @@ function ClientDashboard() {
             </h1>
           </div>
           <div className="header-right">
-            <button className="header-btn">
-              <Search size={20} />
+            <button onClick={toggleTheme} className="header-btn">
+              {theme === "light" ? <MoonStar /> : <Sun />}
             </button>
             <button className="header-btn">
               <Bell size={20} />

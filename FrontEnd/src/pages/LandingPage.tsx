@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
-import { BarChart3, Shield, Clock, Upload, Users, ChevronRight, Check, GraduationCap, Building2, Settings } from 'lucide-react'
+import { BarChart3, Shield, Clock, Upload, Users, ChevronRight, Check, GraduationCap, Building2, Settings, MoonStar, Sun } from 'lucide-react'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/landing.css'
+import { useTheme } from "../components/ThemeProvider";
 
 function LandingPage() {
+  const { theme, toggleTheme } = useTheme();
   return (
     <div className="landing-page">
       {/* Header */}
@@ -15,6 +17,9 @@ function LandingPage() {
           ResultScale
         </Link>
         <nav className="header-nav">
+          <button onClick={toggleTheme} className="nav-link">
+            {theme === "light" ? <MoonStar /> : <Sun />}
+          </button>
           <a href="#features" className="nav-link">Features</a>
           <a href="#pricing" className="nav-link">Pricing</a>
           <Link to="/database" className="nav-link">Database</Link>

@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { 
-  BarChart3, LayoutDashboard, Users, Settings, LogOut, 
+import {
+  BarChart3, LayoutDashboard, Users, Settings, LogOut,
   Bell, Search, Building2, UserCheck, Clock, Menu, X,
-  Plus, Pencil, Trash2, Mail, Calendar, Shield, Database
+  Plus, Pencil, Trash2, Mail, Calendar, Shield, Database, MoonStar, Sun
 } from 'lucide-react'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/dashboard.css'
+import { useTheme } from "../components/ThemeProvider";
+
 
 const mockClients = [
   { id: 1, name: 'ABC University', email: 'admin@abcuniversity.edu', students: 2500, status: 'active', expiresAt: '2025-06-30' },
@@ -24,6 +26,7 @@ const mockStudents = [
 ]
 
 function AdminDashboard() {
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('dashboard')
@@ -52,32 +55,35 @@ function AdminDashboard() {
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <Link to="/" className="sidebar-logo">
+          <div className="sidebar-logo">
             <div className="sidebar-logo-icon">
               <BarChart3 size={18} />
             </div>
             ResultScale
-          </Link>
+            <button className="menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
+              {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
         </div>
-        
+
         <nav className="sidebar-nav">
           <div className="nav-section">
             <div className="nav-section-title">Main</div>
-            <button 
+            <button
               className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}
               onClick={() => handleNavClick('dashboard')}
             >
               <LayoutDashboard size={18} />
               Dashboard
             </button>
-            <button 
+            <button
               className={`nav-item ${activeSection === 'clients' ? 'active' : ''}`}
               onClick={() => handleNavClick('clients')}
             >
               <Building2 size={18} />
               Clients
             </button>
-            <button 
+            <button
               className={`nav-item ${activeSection === 'students' ? 'active' : ''}`}
               onClick={() => handleNavClick('students')}
             >
@@ -85,10 +91,10 @@ function AdminDashboard() {
               Students
             </button>
           </div>
-          
+
           <div className="nav-section">
             <div className="nav-section-title">System</div>
-            <button 
+            <button
               className={`nav-item ${activeSection === 'settings' ? 'active' : ''}`}
               onClick={() => handleNavClick('settings')}
             >
@@ -97,7 +103,7 @@ function AdminDashboard() {
             </button>
           </div>
         </nav>
-        
+
         <div className="sidebar-footer">
           <div className="user-info">
             <div className="user-avatar">A</div>
@@ -127,8 +133,8 @@ function AdminDashboard() {
             </h1>
           </div>
           <div className="header-right">
-            <button className="header-btn">
-              <Search size={20} />
+            <button onClick={toggleTheme} className="header-btn">
+              {theme === "light" ? <MoonStar /> : <Sun />}
             </button>
             <button className="header-btn">
               <Bell size={20} />
@@ -151,7 +157,7 @@ function AdminDashboard() {
                   <div className="stat-card-value">24</div>
                   <div className="stat-card-change positive">+3 this month</div>
                 </div>
-                
+
                 <div className="stat-card">
                   <div className="stat-card-header">
                     <span className="stat-card-title">Active Portals</span>
@@ -162,7 +168,7 @@ function AdminDashboard() {
                   <div className="stat-card-value">18</div>
                   <div className="stat-card-change">75% of total</div>
                 </div>
-                
+
                 <div className="stat-card">
                   <div className="stat-card-header">
                     <span className="stat-card-title">Total Students</span>
@@ -173,7 +179,7 @@ function AdminDashboard() {
                   <div className="stat-card-value">12,450</div>
                   <div className="stat-card-change positive">+850 this month</div>
                 </div>
-                
+
                 <div className="stat-card">
                   <div className="stat-card-header">
                     <span className="stat-card-title">Expiring Soon</span>
@@ -194,7 +200,7 @@ function AdminDashboard() {
                     View All
                   </button>
                 </div>
-                
+
                 <table className="data-table">
                   <thead>
                     <tr>
@@ -242,7 +248,7 @@ function AdminDashboard() {
                   </button>
                 </div>
               </div>
-              
+
               <table className="data-table">
                 <thead>
                   <tr>
@@ -296,7 +302,7 @@ function AdminDashboard() {
                   />
                 </div>
               </div>
-              
+
               <table className="data-table">
                 <thead>
                   <tr>
