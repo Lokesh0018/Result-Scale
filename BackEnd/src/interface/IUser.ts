@@ -20,6 +20,6 @@ export interface IStudent extends Document {
     email: string,
     semester: number,
     sgpa: number,
-    otp:number,
+    otp:string,
     otpExpiry:Date,
 }

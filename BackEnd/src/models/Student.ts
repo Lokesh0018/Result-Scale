@@ -37,7 +37,7 @@ const studentSchema = new Schema<IStudent>({
     },
 
     otp:{
-        type:Number,
+        type:String,
     },
 
     otpExpiry:{
