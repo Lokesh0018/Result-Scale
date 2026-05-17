@@ -12,7 +12,7 @@ export const login = async (req: Request, res: Response) => {
         if (!email || !password || !role) {
             return res.status(400).json({
                 success: false,
-                message: "Email, password and role are required",
+                message: "Email, password and role are required !",
             });
         }
         const user = await verifyLogin(email, password, role);
@@ -31,12 +31,6 @@ export const login = async (req: Request, res: Response) => {
 
         if (err.message === "Invalid password")
             return res.status(401).json({
-                success: false,
-                message: err.message,
-            });
-
-        if (err.message === "Invalid Access")
-            return res.status(403).json({
                 success: false,
                 message: err.message,
             });
