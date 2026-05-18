@@ -1,21 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   BarChart3, LayoutDashboard, Users, Settings, LogOut,
-  Bell, Search, Building2, UserCheck, Clock, Menu, X,
+  Bell, Building2, UserCheck, Clock, Menu, X,
   Plus, Pencil, Trash2, Mail, Calendar, Shield, Database, MoonStar, Sun
 } from 'lucide-react'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/dashboard.css'
 import { useTheme } from "../components/ThemeProvider";
-
-
-const mockClients = [
-  { id: 1, name: 'ABC University', email: 'admin@abcuniversity.edu', students: 2500, status: 'active', expiresAt: '2025-06-30' },
-  { id: 2, name: 'XYZ College', email: 'results@xyzcollege.edu', students: 1200, status: 'active', expiresAt: '2025-05-15' },
-  { id: 3, name: 'Tech Institute', email: 'admin@techinstitute.edu', students: 800, status: 'expired', expiresAt: '2024-12-31' },
-  { id: 4, name: 'City College', email: 'results@citycollege.edu', students: 3200, status: 'active', expiresAt: '2025-08-20' },
-]
+import { useToast } from '../components/Toast';
 
 const mockStudents = [
   { id: 1, rollNo: '2024CS001', name: 'John Doe', email: 'john@email.com', institution: 'ABC University', sgpa: 8.5, status: 'published' },
@@ -26,6 +19,7 @@ const mockStudents = [
 ]
 
 function AdminDashboard() {
+  const { showToast } = useToast();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -33,8 +27,22 @@ function AdminDashboard() {
   const [showModal, setShowModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
-  const filteredClients = mockClients.filter(client =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  type Client = {
+    id: number,
+    institutionName: string,
+    email: string,
+    students: number,
+    status: "active" | "expired",
+    expiresAt: string
+  }
+
+  const [clients, setClients] = useState<Client[]>([]);
+  const [activeClients, setActiveClients] = useState<Client[]>([]);
+  const [students, setStudents] = useState(0);
+  const [expired, setExpired] = useState(0);
+
+  const filteredClients = clients.filter(client =>
+    client.institutionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
@@ -49,6 +57,49 @@ function AdminDashboard() {
     setSearchTerm('')
     setSidebarOpen(false)
   }
+
+  useEffect(() => {
+    fetch("http://localhost:3000/admin/dashboard", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      }
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "failed");
+      return data;
+    }).then((data) => {
+      const users = data.data;
+      const clients = [];
+      const activeClients = [];
+      for (let i = 0; i < users.length; i++) {
+        const user: Client = {
+          id: i + 1,
+          institutionName: users[i].institutionName,
+          email: users[i].email,
+          students: users[i].students,
+          status:
+            new Date(users[i].portalExpiryDate).getTime() < Date.now()
+              ? "expired"
+              : "active",
+          expiresAt: users[i].portalExpiryDate.split("T")[0]
+        }
+        if (user.status === "active") {
+          activeClients.push(user);
+          const expiryDate = new Date(user.expiresAt);
+          if (expiryDate < new Date())
+            setExpired(expired + 1);
+        }
+        clients.push(user);
+        setStudents(students + user.students);
+      }
+      setClients(clients);
+      setActiveClients(activeClients);
+    }).catch((err) => {
+      showToast(err.message, 'error');
+    });
+  }, []);
 
   return (
     <div className="dashboard-layout">
@@ -154,8 +205,8 @@ function AdminDashboard() {
                       <Building2 size={20} />
                     </div>
                   </div>
-                  <div className="stat-card-value">24</div>
-                  <div className="stat-card-change positive">+3 this month</div>
+                  <div className="stat-card-value"> {clients.length}</div>
+                  <div className="stat-card-change positive">+{clients.length} this month</div>
                 </div>
 
                 <div className="stat-card">
@@ -165,8 +216,8 @@ function AdminDashboard() {
                       <UserCheck size={20} />
                     </div>
                   </div>
-                  <div className="stat-card-value">18</div>
-                  <div className="stat-card-change">75% of total</div>
+                  <div className="stat-card-value">{activeClients.length}</div>
+                  <div className="stat-card-change">{Math.floor((activeClients.length / clients.length) * 100)}% of total</div>
                 </div>
 
                 <div className="stat-card">
@@ -176,18 +227,18 @@ function AdminDashboard() {
                       <Users size={20} />
                     </div>
                   </div>
-                  <div className="stat-card-value">12,450</div>
-                  <div className="stat-card-change positive">+850 this month</div>
+                  <div className="stat-card-value">{students}</div>
+                  <div className="stat-card-change positive">+{students} this month</div>
                 </div>
 
                 <div className="stat-card">
                   <div className="stat-card-header">
-                    <span className="stat-card-title">Expiring Soon</span>
+                    <span className="stat-card-title">Expiried</span>
                     <div className="stat-card-icon orange">
                       <Clock size={20} />
                     </div>
                   </div>
-                  <div className="stat-card-value">5</div>
+                  <div className="stat-card-value">{expired}</div>
                   <div className="stat-card-change">Within 30 days</div>
                 </div>
               </div>
@@ -211,9 +262,9 @@ function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {mockClients.slice(0, 3).map((client) => (
+                    {clients.slice(0, 3).map((client) => (
                       <tr key={client.id}>
-                        <td style={{ fontWeight: 500 }}>{client.name}</td>
+                        <td style={{ fontWeight: 500 }}>{client.institutionName}</td>
                         <td style={{ color: 'var(--color-text-muted)' }}>{client.email}</td>
                         <td>{client.students.toLocaleString()}</td>
                         <td>
@@ -263,7 +314,7 @@ function AdminDashboard() {
                 <tbody>
                   {filteredClients.map((client) => (
                     <tr key={client.id}>
-                      <td style={{ fontWeight: 500 }}>{client.name}</td>
+                      <td style={{ fontWeight: 500 }}>{client.institutionName}</td>
                       <td style={{ color: 'var(--color-text-muted)' }}>{client.email}</td>
                       <td>{client.students.toLocaleString()}</td>
                       <td>
