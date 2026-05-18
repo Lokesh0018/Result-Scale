@@ -10,22 +10,21 @@ const generateOtp = (): string => {
 const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-        user: process.env.EMAIL,
-        pass: process.env.EMAIL_PASSWORD,
+        user: process.env.EMAIL as string,
+        pass: process.env.EMAIL_PASSWORD as string,
     },
 });
 
-const sendOtp = async (email: string,otp: string) => {
+const sendOtp = async (email: string, otp: string) => {
     await transporter.sendMail({
-        from: process.env.EMAIL,
+        from: "munakalalokesh222@gmail.com",
         to: email,
         subject: "Your OTP for Login",
         text: `Your OTP is ${otp}. It is valid for 5 minutes.`,
     });
 };
 
-export const VerifyStudentLogin = async (email: string,rollNo: string) => {
-
+export const VerifyStudentLogin = async (email: string, rollNo: string) => {
     const student = await Student.findOne({ email });
 
     if (!student)
@@ -57,7 +56,7 @@ export const VerifyStudentLogin = async (email: string,rollNo: string) => {
     return studentDto;
 };
 
-export const VerifyOtp = async (email: string,otp: string) => {
+export const VerifyOtp = async (email: string, otp: string) => {
 
     const student = await Student.findOne({ email });
 
@@ -74,11 +73,11 @@ export const VerifyOtp = async (email: string,otp: string) => {
 
         await student.save();
 
-        throw new Error("OTP expired!");
+        throw new Error("OTP expired !");
     }
 
     if (student.otp !== otp)
-        throw new Error("Invalid OTP!");
+        throw new Error("Invalid OTP !");
 
     student.otp = "0";
     student.otpExpiry = new Date(0);

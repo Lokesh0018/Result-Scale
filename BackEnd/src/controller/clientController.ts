@@ -53,7 +53,7 @@ export const updateStudent = async (req: Request, res: Response) => {
     try {
         const oldEmail = req.params.email as string;
         const { clientId, name, email, rollNo, semester, sgpa } = req.body;
-        if (!oldEmail || !clientId || name || !email || !rollNo || !semester)
+        if (!oldEmail || !clientId || !name || !email || !rollNo || !semester)
             return res.status(400).json({
                 success: false,
                 message: "Client id, name, email, roll no, semester are required !",
