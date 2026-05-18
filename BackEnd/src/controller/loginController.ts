@@ -29,7 +29,7 @@ export const login = async (req: Request, res: Response) => {
                 message: err.message
             })
 
-        if (err.message === "Invalid password")
+        if (err.message === "Invalid Password !")
             return res.status(401).json({
                 success: false,
                 message: err.message,

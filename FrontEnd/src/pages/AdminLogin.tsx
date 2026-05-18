@@ -6,51 +6,74 @@ import { useToast } from '../components/Toast'
 import '../styles/auth.css'
 
 function AdminLogin() {
-  const navigate = useNavigate()
-  const { showToast } = useToast()
+  const navigate = useNavigate();
+  const { showToast } = useToast();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    remember: false
-  })
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
+    role: "admin",
+  });
+  const [data, setData] = useState<any>(null);
+  const [errors, setErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
+  const [remember,setRemember] = useState(false);
 
   const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {}
+    const newErrors: { email?: string; password?: string } = {};
 
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required'
+      newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address'
+      newErrors.email = "Please enter a valid email address";
     }
 
     if (!formData.password) {
-      newErrors.password = 'Password is required'
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters'
+      newErrors.password = "Password is required";
     }
 
-    setErrors(newErrors)
+    setErrors(newErrors);
 
-    return newErrors
-  }
+    return newErrors;
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const validationErrors = validateForm()
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const validationErrors = validateForm();
+
     if (Object.keys(validationErrors).length > 0) {
-      const errorMessages = Object.values(validationErrors)
+      const errorMessages = Object.values(validationErrors);
+
       showToast(
-        errorMessages[0] || 'Please fill in all required fields',
-        'error'
-      )
-      return
+        errorMessages[0] || "Please fill in all required fields",
+        "error"
+      );
+
+      return;
     }
-    showToast('Login successful! Redirecting...', 'success')
-    setTimeout(() => {
-      navigate('/admin/dashboard')
-    }, 1800)
-  }
+
+    fetch("http://localhost:3000/admin/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formData),
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Login failed");
+      }
+      return data;
+    }).then((data) => {
+      setData(data);
+      showToast("Login successful! Redirecting...", "success");
+      navigate("/admin/dashboard");
+    }).catch((err) => {
+      showToast(err.message,'error');
+    });
+  };
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData({ ...formData, [field]: value })
@@ -111,8 +134,8 @@ function AdminLogin() {
               <label className="form-checkbox">
                 <input
                   type="checkbox"
-                  checked={formData.remember}
-                  onChange={(e) => handleInputChange('remember', e.target.checked)}
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
                 />
                 Remember me
               </label>

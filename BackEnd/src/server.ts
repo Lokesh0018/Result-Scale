@@ -8,7 +8,9 @@ import { router as clientRoutes } from "./routes/clientRoutes";
 import { router as studentRoutes } from "./routes/studentRoutes";
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173'
+}));
 app.use(express.json());
 connectDB();
 

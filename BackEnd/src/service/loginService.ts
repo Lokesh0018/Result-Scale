@@ -13,7 +13,7 @@ export const verifyLogin = async (email: string, password: string, role: Roles) 
     if (!user)
         throw new Error("User not found");
     if (user.password !== password)
-        throw new Error("Invalid Password");
+        throw new Error("Invalid Password !");
     const { password: _password, ...userDto } = user.toObject();
     return userDto;
 }
