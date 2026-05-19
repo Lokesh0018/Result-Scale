@@ -1,13 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { BarChart3, Mail } from 'lucide-react'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/student.css'
+import { useToast } from '../components/Toast';
 
 function VerifyOTP() {
+  const location = useLocation();
+  const { showToast } = useToast();
+  const email = location.state?.email;
   const navigate = useNavigate()
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
-  const [timer, setTimer] = useState(60)
+  const [timer, setTimer] = useState(300)
   const [canResend, setCanResend] = useState(false)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
@@ -24,7 +28,7 @@ function VerifyOTP() {
 
   const handleChange = (index: number, value: string) => {
     if (value.length > 1) return
-    
+
     const newOtp = [...otp]
     newOtp[index] = value
     setOtp(newOtp)
@@ -44,10 +48,32 @@ function VerifyOTP() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const otpValue = otp.join('')
-    if (otpValue.length === 6) {
-      // In a real app, verify OTP here
-      navigate('/student/result')
+    if (otpValue.length < 6) {
+      showToast("Enter Valid OTP", "error");
+      return;
     }
+    fetch("http://localhost:3000/student/verify-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email,
+        otp: otpValue
+      })
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message);
+      return data;
+    }).then((data) => {
+      showToast(data.message, "success");
+      navigate('/student/result',{
+        state:{
+          student:data.student
+        }
+      })
+    }).catch((err) => {
+      showToast(err.message,"error");
+    })
   }
 
   const handleResend = () => {
@@ -77,24 +103,24 @@ function VerifyOTP() {
             Enter the 6-digit code sent to your email
           </p>
         </div>
-        
+
         <div className="student-card-body">
           <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-lg)' }}>
-            <div style={{ 
-              width: '64px', 
-              height: '64px', 
-              backgroundColor: '#f0fdf4', 
-              borderRadius: 'var(--radius-full)', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
+            <div style={{
+              width: '64px',
+              height: '64px',
+              backgroundColor: '#f0fdf4',
+              borderRadius: 'var(--radius-full)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               margin: '0 auto',
               color: '#22c55e'
             }}>
               <Mail size={28} />
             </div>
           </div>
-          
+
           <form onSubmit={handleSubmit}>
             <div className="otp-container">
               {otp.map((digit, index) => (
@@ -112,7 +138,7 @@ function VerifyOTP() {
                 />
               ))}
             </div>
-            
+
             <div className="otp-timer">
               {timer > 0 ? (
                 <>Code expires in <span>{formatTime(timer)}</span></>
@@ -120,9 +146,9 @@ function VerifyOTP() {
                 'Code expired'
               )}
             </div>
-            
-            <button 
-              type="submit" 
+
+            <button
+              type="submit"
               className="btn btn-primary"
               style={{ width: '100%' }}
               disabled={otp.some(d => !d)}
@@ -130,8 +156,8 @@ function VerifyOTP() {
               Verify & View Result
             </button>
           </form>
-          
-          <button 
+
+          <button
             className="resend-btn"
             onClick={handleResend}
             disabled={!canResend}
@@ -139,7 +165,7 @@ function VerifyOTP() {
             {canResend ? 'Resend OTP' : `Resend in ${formatTime(timer)}`}
           </button>
         </div>
-        
+
         <div className="student-card-footer">
           <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)' }}>
             Didn&apos;t receive the code? Check your spam folder or{' '}

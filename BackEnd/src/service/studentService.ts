@@ -84,5 +84,5 @@ export const VerifyOtp = async (email: string, otp: string) => {
 
     await student.save();
 
-    return student.sgpa;
+    return student;
 };

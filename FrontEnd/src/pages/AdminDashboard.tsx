@@ -203,7 +203,7 @@ function AdminDashboard() {
         body: JSON.stringify(formData),
       }).then(async (res) => {
         const data = await res.json();
-        if (!res)
+        if (!res.ok)
           throw new Error(data.message);
         return data;
       }).then((data) => {
@@ -228,7 +228,7 @@ function AdminDashboard() {
         body: JSON.stringify(formData),
       }).then(async (res) => {
         const data = await res.json();
-        if (!res)
+        if (!res.ok)
           throw new Error(data.message);
         return data;
       }).then((data) => {
@@ -256,7 +256,7 @@ function AdminDashboard() {
       }
     }).then(async (res) => {
       const data = await res.json();
-      if (!res)
+      if (!res.ok)
         throw new Error(data.message);
       return data;
     }).then((data) => {

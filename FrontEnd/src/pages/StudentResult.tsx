@@ -1,29 +1,27 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { BarChart3, Printer, Download, Home } from 'lucide-react'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/student.css'
 
-const mockResult = {
-  student: {
-    name: 'John Doe',
-    rollNo: '2024CS001',
-    program: 'B.Tech Computer Science',
-    semester: '4th Semester',
-  },
-  subjects: [
-    { code: 'CS401', name: 'Data Structures', credits: 4, grade: 'A', points: 9 },
-    { code: 'CS402', name: 'Database Systems', credits: 4, grade: 'A+', points: 10 },
-    { code: 'CS403', name: 'Operating Systems', credits: 3, grade: 'B+', points: 8 },
-    { code: 'CS404', name: 'Computer Networks', credits: 3, grade: 'A', points: 9 },
-    { code: 'CS405', name: 'Software Engineering', credits: 3, grade: 'B', points: 7 },
-    { code: 'CS406', name: 'Mathematics IV', credits: 3, grade: 'A', points: 9 },
-  ],
-  sgpa: 8.65,
-  cgpa: 8.42,
-  totalCredits: 20,
-}
-
 function StudentResult() {
+  const location = useLocation()
+  const student = location.state?.student
+
+  const mockResult = {
+    student: student || { name: 'N/A', rollNo: 'N/A', program: 'B.Tech', semester: 'N/A' },
+    subjects: [
+      { code: 'CS401', name: 'Data Structures', credits: 4, grade: 'A', points: 9 },
+      { code: 'CS402', name: 'Database Systems', credits: 4, grade: 'A+', points: 10 },
+      { code: 'CS403', name: 'Operating Systems', credits: 3, grade: 'B+', points: 8 },
+      { code: 'CS404', name: 'Computer Networks', credits: 3, grade: 'A', points: 9 },
+      { code: 'CS405', name: 'Software Engineering', credits: 3, grade: 'B', points: 7 },
+      { code: 'CS406', name: 'Mathematics IV', credits: 3, grade: 'A', points: 9 },
+    ],
+    sgpa: 8.65,
+    cgpa: 8.42,
+    totalCredits: 20,
+  }
+
   const getGradeClass = (grade: string) => {
     if (grade.startsWith('A')) return 'grade-a'
     if (grade.startsWith('B')) return 'grade-b'
@@ -47,7 +45,7 @@ function StudentResult() {
           <h1 className="result-header-title">Semester Result</h1>
           <p className="result-header-subtitle">Academic Year 2024-25</p>
         </div>
-        
+
         <div className="result-body">
           <div className="result-student-info">
             <div className="result-info-item">
@@ -60,14 +58,14 @@ function StudentResult() {
             </div>
             <div className="result-info-item">
               <span className="result-info-label">Program</span>
-              <span className="result-info-value">{mockResult.student.program}</span>
+              <span className="result-info-value">B.Tech</span>
             </div>
             <div className="result-info-item">
               <span className="result-info-label">Semester</span>
               <span className="result-info-value">{mockResult.student.semester}</span>
             </div>
           </div>
-          
+
           <h3 className="result-grades-title">Subject-wise Grades</h3>
           <table className="result-grades-table">
             <thead>
@@ -93,7 +91,7 @@ function StudentResult() {
               ))}
             </tbody>
           </table>
-          
+
           <div className="result-summary">
             <div className="result-summary-item">
               <div className="result-summary-value">{mockResult.sgpa.toFixed(2)}</div>
@@ -109,7 +107,7 @@ function StudentResult() {
             </div>
           </div>
         </div>
-        
+
         <div className="result-footer">
           <button className="btn btn-outline" onClick={handlePrint}>
             <Printer size={16} />

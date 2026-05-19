@@ -41,11 +41,11 @@ export const login = async (req: Request, res: Response) => {
 export const verifyOtp = async (req: Request, res: Response) => {
     try {
         const { email, otp } = req.body;
-        const sgpa = await VerifyOtp(email, otp);
+        const student = await VerifyOtp(email, otp);
         return res.status(200).json({
             success: true,
             message: "OTP verified Successfully",
-            sgpa
+            student
         });
     }
     catch (err: any) {
