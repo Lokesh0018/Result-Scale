@@ -11,6 +11,7 @@ import ExpiredAccess from './pages/ExpiredAccess'
 import AdminDashboard from './pages/AdminDashboard'
 import ClientDashboard from './pages/ClientDashboard'
 import DatabaseStructure from './pages/DatabaseStructure'
+import InfraDashboard from './pages/InfraDashboard'
 
 function App() {
   return (
@@ -24,7 +25,10 @@ function App() {
           <Route path="/student/verify-otp" element={<VerifyOTP />} />
           <Route path="/student/result" element={<StudentResult />} />
           <Route path="/student/expired" element={<ExpiredAccess />} />
+          {/* Legacy admin dashboard kept intact */}
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          {/* New infrastructure dashboard */}
+          <Route path="/dashboard" element={<InfraDashboard />} />
           <Route path="/client/dashboard" element={<ClientDashboard />} />
           <Route path="/database" element={<DatabaseStructure />} />
         </Routes>

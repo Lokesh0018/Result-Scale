@@ -108,7 +108,7 @@ function AdminDashboard() {
     return newErrors;
   };
 
-  const updateShowModal = (e) => {
+  const updateShowModal = (e:any) => {
     e.preventDefault();
     setShowModal(true);
     setAddOrUpdate(true);

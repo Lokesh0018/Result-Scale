@@ -490,11 +490,11 @@ function ClientDashboard() {
 
       {/* Add Student Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay" onClick={() => setShowModal(true)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">Add New Student</h3>
-              <button className="modal-close" onClick={() => setShowModal(false)}>
+              <button className="modal-close" onClick={() => setShowModal(true)}>
                 <X size={20} />
               </button>
             </div>
@@ -519,8 +519,8 @@ function ClientDashboard() {
               </form>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={() => setShowModal(false)}>Add Student</button>
+              <button className="btn btn-outline" onClick={() => setShowModal(true)}>Cancel</button>
+              <button className="btn btn-primary" onClick={() => setShowModal(true)}>Add Student</button>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BarChart3, ArrowLeft, Settings } from 'lucide-react'
+import { BarChart3, ArrowLeft, Wrench } from 'lucide-react'
 import { useToast } from '../components/Toast'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/auth.css'
@@ -54,25 +54,26 @@ function AdminLogin() {
       return;
     }
 
-    fetch("http://localhost:3000/admin/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formData),
-    }).then(async (res) => {
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Login failed");
-      }
-      return data;
-    }).then((data) => {
-      setData(data);
-      showToast("Login successful! Redirecting...", "success");
-      navigate("/admin/dashboard");
-    }).catch((err) => {
-      showToast(err.message,'error');
-    });
+    // fetch("http://localhost:3000/admin/login", {
+    //   method: "POST",
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //   },
+    //   body: JSON.stringify(formData),
+    // }).then(async (res) => {
+    //   const data = await res.json();
+    //   if (!res.ok) {
+    //     throw new Error(data.message || "Login failed");
+    //   }
+    //   return data;
+    // }).then((data) => {
+    //   setData(data);
+    //   showToast("Login successful! Redirecting...", "success");
+    //   navigate("/dashboard");
+    // }).catch((err) => {
+    //   showToast(err.message,'error');
+    // });
+    navigate("/dashboard");
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -156,7 +157,7 @@ function AdminLogin() {
       <div className="auth-right admin">
         <div className="auth-right-content">
           <div className="auth-right-icon">
-            <Settings size={40} />
+            <Wrench size={40} />
           </div>
           <h2 className="auth-right-title">Admin Dashboard</h2>
           <p className="auth-right-description">
