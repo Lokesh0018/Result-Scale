@@ -86,7 +86,7 @@ function ClientDashboard() {
         }
       }).then(async (res) => {
         const data = await res.json();
-        if (!res)
+        if (!res.ok)
           throw new Error(data.message);
         return data;
       }).then((data) => {
@@ -204,7 +204,7 @@ function ClientDashboard() {
       })
     }).then(async (res) => {
       const data = await res.json();
-      if (!res)
+      if (!res.ok)
         throw new Error(data.message);
       return data;
     }).then((data) => {

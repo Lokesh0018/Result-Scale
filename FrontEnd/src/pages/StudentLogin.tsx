@@ -9,33 +9,34 @@ function StudentLogin() {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const [formData, setFormData] = useState({
-    rollNumber: '',
+    rollNo: '',
     email: ''
   })
-  const [errors, setErrors] = useState<{ rollNumber?: string; email?: string }>({})
+  const [errors, setErrors] = useState<{
+    rollNo?: string;
+    email?: string;
+  }>({})
 
   const validateForm = () => {
-    const newErrors: { rollNumber?: string; email?: string } = {}
-    
-    if (!formData.rollNumber.trim()) {
-      newErrors.rollNumber = 'Roll number is required'
-    } else if (formData.rollNumber.length < 3) {
-      newErrors.rollNumber = 'Please enter a valid roll number'
+    const newErrors: { rollNo?: string; email?: string } = {}
+
+    if (!formData.rollNo.trim()) {
+      newErrors.rollNo = 'Roll number is required'
     }
-    
+
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required'
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address'
     }
-    
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!validateForm()) {
       const errorMessages = Object.values(errors).filter(Boolean)
       if (errorMessages.length > 0) {
@@ -44,10 +45,26 @@ function StudentLogin() {
       return
     }
 
-    showToast('OTP sent to your email address!', 'success')
-    setTimeout(() => {
-      navigate('/student/verify-otp')
-    }, 1000)
+    fetch("http://localhost:3000/student/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(formData),
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message);
+    }).then((data) => {
+      showToast('OTP sent to your email address!', 'success');
+      navigate('/student/verify-otp', {
+        state: {
+          email: formData.email,
+        },
+      });
+    }).catch((err: any) => {
+      showToast(err.message, "error");
+    })
   }
 
   const handleInputChange = (field: string, value: string) => {
@@ -65,33 +82,33 @@ function StudentLogin() {
             <ArrowLeft size={16} />
             Back to home
           </Link>
-          
+
           <Link to="/" className="auth-logo">
             <div className="auth-logo-icon">
               <BarChart3 size={24} />
             </div>
             ResultScale
           </Link>
-          
+
           <div className="auth-header">
             <h1 className="auth-title">Student Login</h1>
             <p className="auth-subtitle">Enter your details to receive an OTP</p>
           </div>
-          
+
           <form className="auth-form" onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label" htmlFor="rollNumber">Roll Number</label>
+              <label className="form-label" htmlFor="rollNo">Roll Number</label>
               <input
-                id="rollNumber"
+                id="rollNo"
                 type="text"
-                className={`form-input ${errors.rollNumber ? 'input-error' : ''}`}
+                className={`form-input ${errors.rollNo ? 'input-error' : ''}`}
                 placeholder="e.g., 2024CS001"
-                value={formData.rollNumber}
-                onChange={(e) => handleInputChange('rollNumber', e.target.value)}
+                value={formData.rollNo}
+                onChange={(e) => handleInputChange('rollNo', e.target.value)}
               />
-              {errors.rollNumber && <span className="form-error">{errors.rollNumber}</span>}
+              {errors.rollNo && <span className="form-error">{errors.rollNo}</span>}
             </div>
-            
+
             <div className="form-group">
               <label className="form-label" htmlFor="email">Registered Email</label>
               <input
@@ -104,24 +121,24 @@ function StudentLogin() {
               />
               {errors.email && <span className="form-error">{errors.email}</span>}
             </div>
-            
+
             <button type="submit" className="btn btn-primary auth-submit">
               Send OTP
             </button>
           </form>
-          
+
           <div className="auth-divider">
             <div className="auth-divider-line"></div>
             <span className="auth-divider-text">Secure Access</span>
             <div className="auth-divider-line"></div>
           </div>
-          
+
           <p className="auth-footer">
             An OTP will be sent to your registered email address for verification.
           </p>
         </div>
       </div>
-      
+
       <div className="auth-right student">
         <div className="auth-right-content">
           <div className="auth-right-icon">
@@ -129,7 +146,7 @@ function StudentLogin() {
           </div>
           <h2 className="auth-right-title">Student Portal</h2>
           <p className="auth-right-description">
-            View your academic results securely with OTP verification. 
+            View your academic results securely with OTP verification.
             Download or print your result card anytime.
           </p>
         </div>
