@@ -69,7 +69,7 @@ function AdminLogin() {
     }).then((data) => {
       setData(data);
       showToast("Login successful! Redirecting...", "success");
-      navigate("/admin/dashboard");
+      navigate("/dashboard");
     }).catch((err) => {
       showToast(err.message,'error');
     });
