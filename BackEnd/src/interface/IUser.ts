@@ -18,6 +18,7 @@ export interface IStudent extends Document {
     name: string,
     rollNo: string,
     email: string,
+    institutionName: string;
     semester: number,
     sgpa: number,
     otp:string,

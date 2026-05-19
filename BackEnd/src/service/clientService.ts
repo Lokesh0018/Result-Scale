@@ -9,12 +9,13 @@ export const AddStudent = async (clientId: string, name: string, email: string, 
     const existingStudent = await Student.findOne({ email });
     if (existingStudent)
         throw new Error(`Already Exists with Email ${email}`);
-
+    const client = await Client.findById(clientId);
     const student = await Student.create({
         clientId,
         name,
         email,
         rollNo,
+        institutionName:client?.institutionName,
         semester,
         sgpa,
     })

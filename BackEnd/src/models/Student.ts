@@ -26,6 +26,11 @@ const studentSchema = new Schema<IStudent>({
         required:true,
     },
 
+    institutionName: {
+        type: String,
+        required: true,
+    },
+
     semester: {
         type: Number,
         required: true,

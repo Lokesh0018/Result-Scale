@@ -10,13 +10,6 @@ import '../styles/dashboard.css'
 import { useTheme } from "../components/ThemeProvider";
 import { useToast } from '../components/Toast';
 
-const mockStudents = [
-  { id: 1, rollNo: '2024CS001', name: 'John Doe', email: 'john@email.com', institution: 'ABC University', sgpa: 8.5, status: 'published' },
-  { id: 2, rollNo: '2024CS002', name: 'Jane Smith', email: 'jane@email.com', institution: 'ABC University', sgpa: 9.2, status: 'published' },
-  { id: 3, rollNo: '2024EE001', name: 'Bob Wilson', email: 'bob@email.com', institution: 'XYZ College', sgpa: 7.8, status: 'draft' },
-  { id: 4, rollNo: '2024ME001', name: 'Alice Brown', email: 'alice@email.com', institution: 'Tech Institute', sgpa: 8.9, status: 'published' },
-  { id: 5, rollNo: '2024CS003', name: 'Charlie Davis', email: 'charlie@email.com', institution: 'City College', sgpa: 7.2, status: 'draft' },
-]
 
 function AdminDashboard() {
   const { showToast } = useToast();
@@ -25,6 +18,7 @@ function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('dashboard')
   const [showModal, setShowModal] = useState(false)
+  const [deleteModal, setDeleteModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('')
   const [errors, setErrors] = useState<{
     institutionName?: string,
@@ -42,9 +36,23 @@ function AdminDashboard() {
     portalExpiryDate: string
   }
 
+  type Student = {
+    _id: string,
+    clientId: string,
+    name: string,
+    email: string,
+    rollNo: string,
+    institutionName:string,
+    semester: number,
+    sgpa: number,
+    __v: number,
+    otp: string,
+    otpExpiry: string
+  }
+
   const [clients, setClients] = useState<Client[]>([]);
   const [activeClients, setActiveClients] = useState<Client[]>([]);
-  const [students, setStudents] = useState(0);
+  const [students, setStudents] = useState<Student[]>([]);
   const [expired, setExpired] = useState(0);
   const [formData, setFormData] = useState({
     institutionName: "",
@@ -62,10 +70,10 @@ function AdminDashboard() {
     client.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const filteredStudents = mockStudents.filter(student =>
+  const filteredStudents = students.filter(student =>
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.rollNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.institution.toLowerCase().includes(searchTerm.toLowerCase())
+    student.institutionName.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const handleInputChange = (field: string, value: string) => {
@@ -108,15 +116,19 @@ function AdminDashboard() {
     return newErrors;
   };
 
-  const updateShowModal = (e) => {
-    e.preventDefault();
+  const updateShowModal = () => {
     setShowModal(true);
     setAddOrUpdate(true);
   }
 
-  const changeClient = (client: Client) => {
-    setShowModal(true);
-    setAddOrUpdate(false);
+  const changeClient = (client: Client, update: boolean) => {
+    if (update) {
+      setShowModal(true);
+      setAddOrUpdate(false);
+    }
+    else {
+      setDeleteModal(true);
+    }
     handleInputChange("oldEmail", client.email);
   }
 
@@ -129,47 +141,66 @@ function AdminDashboard() {
 
 
   useEffect(() => {
-    fetch("http://localhost:3000/admin/dashboard", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      }
-    }).then(async (res) => {
-      const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.message || "failed");
-      return data;
-    }).then((data) => {
-      const users = data.data;
-      const clients = [];
-      const activeClients = [];
-      for (let i = 0; i < users.length; i++) {
-        const user: Client = {
-          id: i + 1,
-          institutionName: users[i].institutionName,
-          email: users[i].email,
-          students: users[i].students,
-          status:
-            new Date(users[i].portalExpiryDate).getTime() < Date.now()
-              ? "expired"
-              : "active",
-          portalExpiryDate: users[i].portalExpiryDate.split("T")[0]
+    if (activeSection === "dashboard") {
+      fetch("http://localhost:3000/admin/dashboard", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
         }
-        if (user.status === "active") {
-          activeClients.push(user);
-          const expiryDate = new Date(user.portalExpiryDate);
-          if (expiryDate < new Date())
-            setExpired(expired + 1);
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok)
+          throw new Error(data.message || "failed");
+        return data;
+      }).then((data) => {
+        const users = data.data;
+        const clients = [];
+        const activeClients = [];
+        for (let i = 0; i < users.length; i++) {
+          const user: Client = {
+            id: i + 1,
+            institutionName: users[i].institutionName,
+            email: users[i].email,
+            students: users[i].students,
+            status:
+              new Date(users[i].portalExpiryDate).getTime() < Date.now()
+                ? "expired"
+                : "active",
+            portalExpiryDate: users[i].portalExpiryDate.split("T")[0]
+          }
+          if (user.status === "active") {
+            activeClients.push(user);
+            const expiryDate = new Date(user.portalExpiryDate);
+            if (expiryDate < new Date())
+              setExpired(expired + 1);
+          }
+          clients.push(user);
         }
-        clients.push(user);
-        setStudents(students + user.students);
-      }
-      setClients(clients);
-      setActiveClients(activeClients);
-    }).catch((err) => {
-      showToast(err.message, 'error');
-    });
-  }, []);
+        setClients(clients);
+        setActiveClients(activeClients);
+      }).catch((err) => {
+        showToast(err.message, 'error');
+      });
+    }
+    if (activeSection === "students") {
+      fetch("http://localhost:3000/admin/students", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        }
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok)
+          throw new Error(data.message || "failed");
+        return data;
+      }).then((data) => {
+        const users = data.students;
+        setStudents(users);
+      }).catch((err) => {
+        showToast(err.message, 'error');
+      });
+    }
+  }, [activeSection]);
 
   const addOrUpdateClient = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -208,7 +239,7 @@ function AdminDashboard() {
         showToast(err.message, "error");
       });
     }
-    else{
+    else {
       fetch(`http://localhost:3000/admin/clients/${formData.oldEmail}`, {
         method: "PUT",
         headers: {
@@ -234,6 +265,31 @@ function AdminDashboard() {
       });
     }
     setShowModal(false);
+  };
+
+  const deleteClient = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    fetch(`http://localhost:3000/admin/clients/${formData.oldEmail}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      }
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res)
+        throw new Error(data.message);
+      return data;
+    }).then((data) => {
+      const deletedClient: Client = data.client;
+      const updatedClients = clients.filter((client) => client.email !== deletedClient.email);
+      const updatedActiveClients = activeClients.filter((client) => client.email !== deletedClient.email);
+      setClients(updatedClients);
+      setActiveClients(updatedActiveClients);
+      showToast(data.message, "success");
+    }).catch((err) => {
+      showToast(err.message, "error");
+    });
+    setDeleteModal(false);
   }
 
 
@@ -363,8 +419,8 @@ function AdminDashboard() {
                       <Users size={20} />
                     </div>
                   </div>
-                  <div className="stat-card-value">{students}</div>
-                  <div className="stat-card-change positive">+{students} this month</div>
+                  <div className="stat-card-value">{students.length}</div>
+                  <div className="stat-card-change positive">+{students.length} this month</div>
                 </div>
 
                 <div className="stat-card">
@@ -429,7 +485,7 @@ function AdminDashboard() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
-                  <button className="btn btn-primary" onClick={(e) => updateShowModal(e)}>
+                  <button className="btn btn-primary" onClick={() => updateShowModal()}>
                     <Plus size={16} />
                     Add Client
                   </button>
@@ -460,10 +516,10 @@ function AdminDashboard() {
                       </td>
                       <td style={{ color: 'var(--color-text-muted)' }}>{client.portalExpiryDate}</td>
                       <td>
-                        <button className="action-btn edit" onClick={() => changeClient(client)}>
+                        <button className="action-btn edit" onClick={() => changeClient(client, true)}>
                           <Pencil size={14} />
                         </button>
-                        <button className="action-btn delete">
+                        <button className="action-btn delete" onClick={() => changeClient(client, false)}>
                           <Trash2 size={14} />
                         </button>
                       </td>
@@ -498,22 +554,16 @@ function AdminDashboard() {
                     <th>Institution</th>
                     <th>Email</th>
                     <th>SGPA</th>
-                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredStudents.map((student) => (
-                    <tr key={student.id}>
+                    <tr key={student.rollNo}>
                       <td style={{ fontWeight: 500 }}>{student.rollNo}</td>
                       <td>{student.name}</td>
-                      <td>{student.institution}</td>
+                      <td>{student.institutionName}</td>
                       <td style={{ color: 'var(--color-text-muted)' }}>{student.email}</td>
                       <td>{student.sgpa.toFixed(1)}</td>
-                      <td>
-                        <span className={`badge ${student.status === 'published' ? 'badge-success' : 'badge-warning'}`}>
-                          {student.status}
-                        </span>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -645,7 +695,7 @@ function AdminDashboard() {
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">{(addOrUpdate) ? "Add" : "Update"} New Client</h3>
+              <h3 className="modal-title">{(addOrUpdate) ? "Add" : "Update"} Client</h3>
               <button className="modal-close" onClick={() => setShowModal(false)}>
                 <X size={20} />
               </button>
@@ -673,6 +723,26 @@ function AdminDashboard() {
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={(e) => addOrUpdateClient(e)}>{(addOrUpdate) ? "Create" : "Update"} Client</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Delete Client</h3>
+              <button className="modal-close" onClick={() => setDeleteModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              Are you sure you want to delete {formData.oldEmail}?
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={(e) => deleteClient(e)}>Delete Client</button>
             </div>
           </div>
         </div>

@@ -57,6 +57,7 @@ export const DeleteClient = async (email: string) => {
     if (!existingClient)
         throw new Error("Client not found !");
     await Client.deleteOne({ email });
+    await Student.deleteMany({clientId:existingClient.id});
     const { password: _password, ...clientDto } = existingClient.toObject();
     return clientDto;
 }
