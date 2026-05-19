@@ -51,8 +51,11 @@ function AdminDashboard() {
     email: "",
     password: "",
     portalExpiryDate: new Date(0),
-    role:"client"
+    role: "client",
+    oldEmail: ""
   });
+
+  const [addOrUpdate, setAddOrUpdate] = useState(true);
 
   const filteredClients = clients.filter(client =>
     client.institutionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -73,37 +76,49 @@ function AdminDashboard() {
   }
 
   const validateForm = () => {
-  const newErrors: {
-    institutionName?: string,
-    email?: string,
-    password?: string,
-    portalExpiryDate?: string
-  } = {};
+    const newErrors: {
+      institutionName?: string,
+      email?: string,
+      password?: string,
+      portalExpiryDate?: string
+    } = {};
 
-  if (!formData.institutionName.trim()) {
-    newErrors.institutionName = "Institution Name is required";
+    if (!formData.institutionName.trim()) {
+      newErrors.institutionName = "Institution Name is required";
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (!formData.password.trim()) {
+      newErrors.password = "Password is required";
+    }
+
+    const expiryDate = new Date(formData.portalExpiryDate);
+
+    if (expiryDate.getTime() < new Date().getTime()) {
+      newErrors.portalExpiryDate = "Date is Invalid";
+    }
+
+    setErrors(newErrors);
+
+    return newErrors;
+  };
+
+  const updateShowModal = (e) => {
+    e.preventDefault();
+    setShowModal(true);
+    setAddOrUpdate(true);
   }
 
-  if (!formData.email.trim()) {
-    newErrors.email = "Email is required";
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-    newErrors.email = "Please enter a valid email address";
+  const changeClient = (client: Client) => {
+    setShowModal(true);
+    setAddOrUpdate(false);
+    handleInputChange("oldEmail", client.email);
   }
-
-  if (!formData.password.trim()) {
-    newErrors.password = "Password is required";
-  }
-
-  const expiryDate = new Date(formData.portalExpiryDate);
-
-  if (expiryDate.getTime() < new Date().getTime()) {
-    newErrors.portalExpiryDate = "Date is Invalid";
-  }
-
-  setErrors(newErrors);
-
-  return newErrors;
-};
 
 
   const handleNavClick = (section: string) => {
@@ -112,7 +127,7 @@ function AdminDashboard() {
     setSidebarOpen(false)
   }
 
-  
+
   useEffect(() => {
     fetch("http://localhost:3000/admin/dashboard", {
       method: "GET",
@@ -156,8 +171,7 @@ function AdminDashboard() {
     });
   }, []);
 
-  const addClient = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    console.log(formData);
+  const addOrUpdateClient = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     const validationErrors = validateForm();
 
@@ -169,30 +183,56 @@ function AdminDashboard() {
       );
       return;
     }
-
-    fetch("http://localhost:3000/admin/clients", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formData),
-    }).then(async (res)=>{
-      const data = await res.json();
-      if(!res)
-        throw new Error(data.message);
-      return data;
-    }).then((data) => {
-      const newClient:Client = data.client;
-      newClient.portalExpiryDate = newClient.portalExpiryDate.toString().split("T")[0];
-      newClient.status = "active";
-      const updatedClients = [...clients,newClient];
-      const updatedActiveClients = [...activeClients,newClient];
-      setClients(updatedClients);
-      setActiveClients(updatedActiveClients);
-      showToast(data.message,"success");
-    }).catch((err)=>{
-      showToast(err.message,"error");
-    });
+    if (addOrUpdate) {
+      fetch("http://localhost:3000/admin/clients", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res)
+          throw new Error(data.message);
+        return data;
+      }).then((data) => {
+        const newClient: Client = data.client;
+        newClient.portalExpiryDate = newClient.portalExpiryDate.toString().split("T")[0];
+        newClient.status = "active";
+        const updatedClients = [...clients, newClient];
+        const updatedActiveClients = [...activeClients, newClient];
+        setClients(updatedClients);
+        setActiveClients(updatedActiveClients);
+        showToast(data.message, "success");
+      }).catch((err) => {
+        showToast(err.message, "error");
+      });
+    }
+    else{
+      fetch(`http://localhost:3000/admin/clients/${formData.oldEmail}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res)
+          throw new Error(data.message);
+        return data;
+      }).then((data) => {
+        const newClient: Client = data.client;
+        newClient.portalExpiryDate = newClient.portalExpiryDate.toString().split("T")[0];
+        newClient.status = "active";
+        const updatedClients = [...clients, newClient];
+        const updatedActiveClients = [...activeClients, newClient];
+        setClients(updatedClients);
+        setActiveClients(updatedActiveClients);
+        showToast(data.message, "success");
+      }).catch((err) => {
+        showToast(err.message, "error");
+      });
+    }
     setShowModal(false);
   }
 
@@ -389,7 +429,7 @@ function AdminDashboard() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
-                  <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+                  <button className="btn btn-primary" onClick={(e) => updateShowModal(e)}>
                     <Plus size={16} />
                     Add Client
                   </button>
@@ -420,7 +460,7 @@ function AdminDashboard() {
                       </td>
                       <td style={{ color: 'var(--color-text-muted)' }}>{client.portalExpiryDate}</td>
                       <td>
-                        <button className="action-btn edit" onClick={() => setShowModal(true)}>
+                        <button className="action-btn edit" onClick={() => changeClient(client)}>
                           <Pencil size={14} />
                         </button>
                         <button className="action-btn delete">
@@ -605,7 +645,7 @@ function AdminDashboard() {
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">Add New Client</h3>
+              <h3 className="modal-title">{(addOrUpdate) ? "Add" : "Update"} New Client</h3>
               <button className="modal-close" onClick={() => setShowModal(false)}>
                 <X size={20} />
               </button>
@@ -632,7 +672,7 @@ function AdminDashboard() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={(e) => addClient(e)}>Create Client</button>
+              <button className="btn btn-primary" onClick={(e) => addOrUpdateClient(e)}>{(addOrUpdate) ? "Create" : "Update"} Client</button>
             </div>
           </div>
         </div>
