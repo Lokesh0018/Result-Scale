@@ -1,23 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { 
-  BarChart3, LayoutDashboard, Upload, Users, Settings, LogOut, 
-  Bell, Search, Menu, X, FileText, UserCheck, Eye, Plus, Pencil, Trash2,
+import {
+  BarChart3, LayoutDashboard, Upload, Users, Settings, LogOut,
+  Bell, Menu, X, FileText, UserCheck, Eye, Plus, Pencil, Trash2,
   Mail, Calendar, Shield, Building2, MoonStar, Sun
 } from 'lucide-react'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/dashboard.css'
 import { useTheme } from "../components/ThemeProvider";
+import { useToast } from '../components/Toast';
+import { Student } from '../types/Types';
 
-const mockStudents = [
-  { id: 1, rollNo: '2024CS001', name: 'John Doe', email: 'john@email.com', semester: 4, sgpa: 8.5, cgpa: 8.2, status: 'published' },
-  { id: 2, rollNo: '2024CS002', name: 'Jane Smith', email: 'jane@email.com', semester: 4, sgpa: 9.2, cgpa: 9.0, status: 'published' },
-  { id: 3, rollNo: '2024CS003', name: 'Bob Wilson', email: 'bob@email.com', semester: 4, sgpa: 7.8, cgpa: 7.5, status: 'draft' },
-  { id: 4, rollNo: '2024CS004', name: 'Alice Brown', email: 'alice@email.com', semester: 4, sgpa: 8.9, cgpa: 8.7, status: 'published' },
-  { id: 5, rollNo: '2024CS005', name: 'Charlie Davis', email: 'charlie@email.com', semester: 4, sgpa: 7.2, cgpa: 7.4, status: 'draft' },
-]
 
 function ClientDashboard() {
+  const { showToast } = useToast();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -25,8 +21,34 @@ function ClientDashboard() {
   const [activeTab, setActiveTab] = useState('upload')
   const [showModal, setShowModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [students, setStudents] = useState<Student[]>([]);
+  const clientId = localStorage.getItem("clientId");
+  const [addOrUpdate, setAddOrUpdate] = useState(true);
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [semester,setSemester] = useState(0);
+  const [formData, setFormData] = useState({
+    clientId: clientId,
+    rollNo: "",
+    name: "",
+    email: "",
+    role: "student",
+    semester: 0,
+    sgpa: 0,
+    oldEmail:""
+  });
+  const [errors, setErrors] = useState<{
+    institutionName?: string,
+    email?: string,
+    password?: string,
+    portalExpiryDate?: string
+  }>({});
 
-  const filteredStudents = mockStudents.filter(student =>
+  const updateShowModal = () => {
+    setShowModal(true);
+    setAddOrUpdate(true);
+  }
+
+  const filteredStudents = students.filter(student =>
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.rollNo.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -36,6 +58,167 @@ function ClientDashboard() {
     setSearchTerm('')
     setSidebarOpen(false)
   }
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData({ ...formData, [field]: value })
+    if (errors[field as keyof typeof errors]) {
+      setErrors({ ...errors, [field]: undefined })
+    }
+  }
+
+  const changeStudent = (student: Student, update: boolean) => {
+    if (update) {
+      setShowModal(true);
+      setAddOrUpdate(false);
+    }
+    else {
+      setDeleteModal(true);
+    }
+    handleInputChange("oldEmail", student.email);
+  }
+
+  useEffect(() => {
+    if (activeSection === "dashboard") {
+      fetch(`http://localhost:3000/client/dashboard/${clientId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        }
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res)
+          throw new Error(data.message);
+        return data;
+      }).then((data) => {
+        setStudents(data.data);
+      }).catch((err) => {
+        showToast(err.message, 'error');
+      });
+    }
+    setSemester(students.reduce((acc,student) => acc + student.semester,0));
+  }, [activeSection]);
+
+  const validateForm = () => {
+    const newErrors: {
+      rollNo?: string,
+      name?: string,
+      email?: string,
+      semester?: string,
+      sgpa?: string
+    } = {};
+
+    if (!formData.rollNo.trim()) {
+      newErrors.rollNo = "Roll Number is required";
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (!formData.name.trim()) {
+      newErrors.name = "Name is required";
+    }
+
+    if (formData.semester === 0) {
+      newErrors.semester = "Semester is required";
+    }
+
+    if (formData.sgpa === 0) {
+      newErrors.sgpa = "SGPA is required";
+    }
+
+    setErrors(newErrors);
+
+    return newErrors;
+  };
+
+  const addOrUpdateStudent = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    const validationErrors = validateForm();
+
+    if (Object.keys(validationErrors).length > 0) {
+      const errorMessages = Object.values(validationErrors);
+      showToast(
+        errorMessages[0] || "Please fill in all required fields",
+        "error"
+      );
+      return;
+    }
+    if (addOrUpdate) {
+      console.log(formData);
+      fetch("http://localhost:3000/client/students", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok)
+          throw new Error(data.message);
+        return data;
+      }).then((data) => {
+        const updatedStudents = [...students,data.student]
+        setStudents(updatedStudents);
+        showToast(data.message, "success");
+      }).catch((err) => {
+        showToast(err.message, "error");
+      });
+    }
+    else {
+      fetch(`http://localhost:3000/client/students/${formData.oldEmail}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok)
+          throw new Error(data.message);
+        return data;
+      }).then((data) => {
+        const newStudent: Student = data.student;
+        const updatedStudents = [...students.filter((student)=>student.email !== formData.oldEmail), newStudent];
+        setStudents(updatedStudents);
+        showToast(data.message, "success");
+      }).catch((err) => {
+        showToast(err.message, "error");
+      });
+    }
+    setSemester(students.reduce((acc,student) => acc + student.semester,0));
+    setShowModal(false);
+  };
+
+  const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    fetch(`http://localhost:3000/client/students/${formData.oldEmail}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body:JSON.stringify({
+        clientId:clientId
+      })
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res)
+        throw new Error(data.message);
+      return data;
+    }).then((data) => {
+      const deletedStudent: Student = data.student;
+      const updatedStudents = students.filter((student) => student.email !== deletedStudent.email);
+      setStudents(updatedStudents);
+      showToast(data.message, "success");
+    }).catch((err) => {
+      showToast(err.message, "error");
+    });
+    setDeleteModal(false);
+    setSemester(students.reduce((acc,student) => acc + student.semester,0));
+  }
+
 
   return (
     <div className="dashboard-layout">
@@ -49,25 +232,25 @@ function ClientDashboard() {
             ResultScale
           </Link>
         </div>
-        
+
         <nav className="sidebar-nav">
           <div className="nav-section">
             <div className="nav-section-title">Main</div>
-            <button 
+            <button
               className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}
               onClick={() => handleNavClick('dashboard')}
             >
               <LayoutDashboard size={18} />
               Dashboard
             </button>
-            <button 
+            <button
               className={`nav-item ${activeSection === 'upload' ? 'active' : ''}`}
               onClick={() => handleNavClick('upload')}
             >
               <Upload size={18} />
               Upload Results
             </button>
-            <button 
+            <button
               className={`nav-item ${activeSection === 'students' ? 'active' : ''}`}
               onClick={() => handleNavClick('students')}
             >
@@ -75,10 +258,10 @@ function ClientDashboard() {
               Students
             </button>
           </div>
-          
+
           <div className="nav-section">
             <div className="nav-section-title">System</div>
-            <button 
+            <button
               className={`nav-item ${activeSection === 'settings' ? 'active' : ''}`}
               onClick={() => handleNavClick('settings')}
             >
@@ -87,7 +270,7 @@ function ClientDashboard() {
             </button>
           </div>
         </nav>
-        
+
         <div className="sidebar-footer">
           <div className="user-info">
             <div className="user-avatar">A</div>
@@ -138,10 +321,10 @@ function ClientDashboard() {
                       <Users size={20} />
                     </div>
                   </div>
-                  <div className="stat-card-value">2,450</div>
-                  <div className="stat-card-change positive">+120 this semester</div>
+                  <div className="stat-card-value">{students.length}</div>
+                  <div className="stat-card-change positive">+{students.length} this semester</div>
                 </div>
-                
+
                 <div className="stat-card">
                   <div className="stat-card-header">
                     <span className="stat-card-title">Results Published</span>
@@ -149,10 +332,10 @@ function ClientDashboard() {
                       <FileText size={20} />
                     </div>
                   </div>
-                  <div className="stat-card-value">2,180</div>
-                  <div className="stat-card-change">89% of total</div>
+                  <div className="stat-card-value">{semester}</div>
+                  <div className="stat-card-change">{(semester/students.length*8)/100}% of total</div>
                 </div>
-                
+
                 <div className="stat-card">
                   <div className="stat-card-header">
                     <span className="stat-card-title">Results Viewed</span>
@@ -160,10 +343,10 @@ function ClientDashboard() {
                       <Eye size={20} />
                     </div>
                   </div>
-                  <div className="stat-card-value">1,856</div>
-                  <div className="stat-card-change">85% view rate</div>
+                  <div className="stat-card-value">{students.length}</div>
+                  <div className="stat-card-change">{students.length/students.length*100}% view rate</div>
                 </div>
-                
+
                 <div className="stat-card">
                   <div className="stat-card-header">
                     <span className="stat-card-title">OTPs Sent</span>
@@ -171,7 +354,7 @@ function ClientDashboard() {
                       <UserCheck size={20} />
                     </div>
                   </div>
-                  <div className="stat-card-value">3,420</div>
+                  <div className="stat-card-value">{semester}</div>
                   <div className="stat-card-change">This month</div>
                 </div>
               </div>
@@ -184,27 +367,23 @@ function ClientDashboard() {
                     View All
                   </button>
                 </div>
-                
+
                 <table className="data-table">
                   <thead>
                     <tr>
                       <th>Roll No</th>
                       <th>Name</th>
+                      <th>Semester</th>
                       <th>SGPA</th>
-                      <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {mockStudents.slice(0, 3).map((student) => (
-                      <tr key={student.id}>
+                    {filteredStudents.slice(-3).map((student) => (
+                      <tr key={student._id}>
                         <td style={{ fontWeight: 500 }}>{student.rollNo}</td>
                         <td>{student.name}</td>
+                        <td>{student.semester}</td>
                         <td>{student.sgpa.toFixed(1)}</td>
-                        <td>
-                          <span className={`badge ${student.status === 'published' ? 'badge-success' : 'badge-warning'}`}>
-                            {student.status}
-                          </span>
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -217,20 +396,20 @@ function ClientDashboard() {
           {activeSection === 'upload' && (
             <div className="tabs-container">
               <div className="tabs-header">
-                <button 
+                <button
                   className={`tab-btn ${activeTab === 'upload' ? 'active' : ''}`}
                   onClick={() => setActiveTab('upload')}
                 >
                   CSV Upload
                 </button>
-                <button 
+                <button
                   className={`tab-btn ${activeTab === 'manual' ? 'active' : ''}`}
                   onClick={() => setActiveTab('manual')}
                 >
                   Manual Entry
                 </button>
               </div>
-              
+
               <div className="tab-content">
                 {activeTab === 'upload' && (
                   <div className="upload-area">
@@ -246,7 +425,7 @@ function ClientDashboard() {
                     <button className="btn btn-primary" style={{ marginTop: 'var(--spacing-lg)' }}>
                       Select File
                     </button>
-                    
+
                     <div className="upload-info">
                       <h4>CSV Format Requirements:</h4>
                       <ul>
@@ -257,36 +436,35 @@ function ClientDashboard() {
                     </div>
                   </div>
                 )}
-                
+
                 {activeTab === 'manual' && (
                   <form className="modal-form" style={{ maxWidth: '600px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                       <div className="form-group">
                         <label className="form-label">Roll Number</label>
-                        <input type="text" className="form-input" placeholder="e.g., 2024CS005" />
+                        <input type="text" className="form-input" placeholder="e.g., 2024CS005"  onChange={(e) => handleInputChange('rollNo', e.target.value)}/>
                       </div>
                       <div className="form-group">
                         <label className="form-label">Student Name</label>
-                        <input type="text" className="form-input" placeholder="Enter full name" />
+                        <input type="text" className="form-input" placeholder="Enter full name"  onChange={(e) => handleInputChange('name', e.target.value)} />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Email Address</label>
-                        <input type="email" className="form-input" placeholder="student@email.com" />
+                        <input type="email" className="form-input" placeholder="student@email.com"  onChange={(e) => handleInputChange('email', e.target.value)}/>
                       </div>
                       <div className="form-group">
                         <label className="form-label">Semester</label>
-                        <input type="text" className="form-input" placeholder="e.g., 4" />
+                        <input type="text" className="form-input" placeholder="e.g., 4"  onChange={(e) => handleInputChange('semester', e.target.value)}/>
                       </div>
                       <div className="form-group">
                         <label className="form-label">SGPA</label>
-                        <input type="number" step="0.01" className="form-input" placeholder="e.g., 8.5" />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">CGPA</label>
-                        <input type="number" step="0.01" className="form-input" placeholder="e.g., 8.2" />
+                        <input type="number" step="0.01" className="form-input" placeholder="e.g., 8.5"  onChange={(e) => handleInputChange('sgpa', e.target.value)}/>
                       </div>
                     </div>
-                    <button type="submit" className="btn btn-primary" style={{ marginTop: 'var(--spacing-md)' }}>
+                    <button type="submit" className="btn btn-primary" style={{ marginTop: 'var(--spacing-md)' }} onClick={(e) => {
+                      setAddOrUpdate(true);
+                      addOrUpdateStudent(e);
+                      }}>
                       Add Student Result
                     </button>
                   </form>
@@ -308,13 +486,13 @@ function ClientDashboard() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
-                  <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+                  <button className="btn btn-primary" onClick={() => updateShowModal()}>
                     <Plus size={16} />
                     Add Student
                   </button>
                 </div>
               </div>
-              
+
               <table className="data-table">
                 <thead>
                   <tr>
@@ -323,30 +501,22 @@ function ClientDashboard() {
                     <th>Email</th>
                     <th>Semester</th>
                     <th>SGPA</th>
-                    <th>CGPA</th>
-                    <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredStudents.map((student) => (
-                    <tr key={student.id}>
+                    <tr key={student._id}>
                       <td style={{ fontWeight: 500 }}>{student.rollNo}</td>
                       <td>{student.name}</td>
                       <td style={{ color: 'var(--color-text-muted)' }}>{student.email}</td>
                       <td>{student.semester}</td>
                       <td>{student.sgpa.toFixed(1)}</td>
-                      <td>{student.cgpa.toFixed(1)}</td>
                       <td>
-                        <span className={`badge ${student.status === 'published' ? 'badge-success' : 'badge-warning'}`}>
-                          {student.status}
-                        </span>
-                      </td>
-                      <td>
-                        <button className="action-btn edit">
+                        <button className="action-btn edit" onClick={() => changeStudent(student,true)}>
                           <Pencil size={14} />
                         </button>
-                        <button className="action-btn delete">
+                        <button className="action-btn delete" onClick={() => changeStudent(student,false)}>
                           <Trash2 size={14} />
                         </button>
                       </td>
@@ -493,7 +663,7 @@ function ClientDashboard() {
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">Add New Student</h3>
+              <h3 className="modal-title">{(addOrUpdate) ? "Create" : "Update"} Student</h3>
               <button className="modal-close" onClick={() => setShowModal(false)}>
                 <X size={20} />
               </button>
@@ -502,25 +672,48 @@ function ClientDashboard() {
               <form className="modal-form">
                 <div className="form-group">
                   <label className="form-label">Roll Number</label>
-                  <input type="text" className="form-input" placeholder="Enter roll number" />
+                  <input type="text" className="form-input" placeholder="Enter roll number"  onChange={(e) => handleInputChange('rollNo', e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Student Name</label>
-                  <input type="text" className="form-input" placeholder="Enter full name" />
+                  <input type="text" className="form-input" placeholder="Enter full name"  onChange={(e) => handleInputChange('name', e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Email Address</label>
-                  <input type="email" className="form-input" placeholder="Enter email address" />
+                  <input type="email" className="form-input" placeholder="Enter email address"  onChange={(e) => handleInputChange('email', e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Semester</label>
-                  <input type="number" className="form-input" placeholder="Enter semester" />
+                  <input type="number" className="form-input" placeholder="Enter semester"  onChange={(e) => handleInputChange('semester', e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">SGPA</label>
+                  <input type="number" className="form-input" placeholder="Enter sgpa"  onChange={(e) => handleInputChange('sgpa', e.target.value)}/>
                 </div>
               </form>
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={() => setShowModal(false)}>Add Student</button>
+              <button className="btn btn-primary" onClick={(e) => addOrUpdateStudent(e)}>{(addOrUpdate) ? "Create" : "Update"} Student</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {deleteModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Delete Client</h3>
+              <button className="modal-close" onClick={() => setDeleteModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              Are you sure you want to delete {formData.oldEmail}?
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={(e) => deleteStudent(e)}>Delete Client</button>
             </div>
           </div>
         </div>

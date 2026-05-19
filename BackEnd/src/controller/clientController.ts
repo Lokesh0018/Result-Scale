@@ -3,7 +3,7 @@ import { GetDashboard, AddStudent, UpdateStudent, DeleteStudent, GetStudents, Up
 
 export const getDashboard = async (req: Request, res: Response) => {
     try {
-        const { clientId } = req.body;
+        const clientId = req.params.clientId as string;
         const data = await GetDashboard(clientId);
         return res.status(200).json({
             success: true,

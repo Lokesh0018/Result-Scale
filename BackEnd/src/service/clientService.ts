@@ -1,9 +1,12 @@
+import mongoose from "mongoose";
 import Client from "../models/Client";
 import Student from "../models/Student";
 
 export const GetDashboard = async (clientId: string) => {
-    return await Student.find({ clientId }).lean();
-}
+  return await Student.find({
+    clientId: new mongoose.Types.ObjectId(clientId)
+  }).lean();
+};
 
 export const AddStudent = async (clientId: string, name: string, email: string, rollNo: string, semester: number, sgpa: number) => {
     const existingStudent = await Student.findOne({ email });

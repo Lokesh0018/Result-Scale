@@ -5,7 +5,7 @@ import { getDashboard, addStudent, updateStudent, deleteStudent, getStudents, up
 export const router = express.Router();
 router.post("/login",login);
 
-router.get("/dashboard",getDashboard);
+router.get("/dashboard/:clientId",getDashboard);
 router.post("/students",addStudent);
 router.put("/students/:email",updateStudent);
 router.delete("/students/:email",deleteStudent);

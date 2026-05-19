@@ -9,6 +9,7 @@ import {
 import '../styles/dashboard.css'
 import { useTheme } from "../components/ThemeProvider";
 import { useToast } from '../components/Toast';
+import { Client, Student } from '../types/Types';
 
 
 function AdminDashboard() {
@@ -27,28 +28,7 @@ function AdminDashboard() {
     portalExpiryDate?: string
   }>({});
 
-  type Client = {
-    id: number,
-    institutionName: string,
-    email: string,
-    students: number,
-    status: "active" | "expired",
-    portalExpiryDate: string
-  }
-
-  type Student = {
-    _id: string,
-    clientId: string,
-    name: string,
-    email: string,
-    rollNo: string,
-    institutionName:string,
-    semester: number,
-    sgpa: number,
-    __v: number,
-    otp: string,
-    otpExpiry: string
-  }
+  
 
   const [clients, setClients] = useState<Client[]>([]);
   const [activeClients, setActiveClients] = useState<Client[]>([]);
@@ -230,7 +210,7 @@ function AdminDashboard() {
         const newClient: Client = data.client;
         newClient.portalExpiryDate = newClient.portalExpiryDate.toString().split("T")[0];
         newClient.status = "active";
-        const updatedClients = [...clients, newClient];
+        const updatedClients = [...clients.filter((client) => client.email !== formData.oldEmail), newClient];
         const updatedActiveClients = [...activeClients, newClient];
         setClients(updatedClients);
         setActiveClients(updatedActiveClients);
