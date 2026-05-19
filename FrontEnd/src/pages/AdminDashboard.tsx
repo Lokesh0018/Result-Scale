@@ -26,6 +26,12 @@ function AdminDashboard() {
   const [activeSection, setActiveSection] = useState('dashboard')
   const [showModal, setShowModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [errors, setErrors] = useState<{
+    institutionName?: string,
+    email?: string,
+    password?: string,
+    portalExpiryDate?: string
+  }>({});
 
   type Client = {
     id: number,
@@ -33,13 +39,20 @@ function AdminDashboard() {
     email: string,
     students: number,
     status: "active" | "expired",
-    expiresAt: string
+    portalExpiryDate: string
   }
 
   const [clients, setClients] = useState<Client[]>([]);
   const [activeClients, setActiveClients] = useState<Client[]>([]);
   const [students, setStudents] = useState(0);
   const [expired, setExpired] = useState(0);
+  const [formData, setFormData] = useState({
+    institutionName: "",
+    email: "",
+    password: "",
+    portalExpiryDate: new Date(0),
+    role:"client"
+  });
 
   const filteredClients = clients.filter(client =>
     client.institutionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -52,12 +65,54 @@ function AdminDashboard() {
     student.institution.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  const handleInputChange = (field: string, value: string) => {
+    setFormData({ ...formData, [field]: value })
+    if (errors[field as keyof typeof errors]) {
+      setErrors({ ...errors, [field]: undefined })
+    }
+  }
+
+  const validateForm = () => {
+  const newErrors: {
+    institutionName?: string,
+    email?: string,
+    password?: string,
+    portalExpiryDate?: string
+  } = {};
+
+  if (!formData.institutionName.trim()) {
+    newErrors.institutionName = "Institution Name is required";
+  }
+
+  if (!formData.email.trim()) {
+    newErrors.email = "Email is required";
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    newErrors.email = "Please enter a valid email address";
+  }
+
+  if (!formData.password.trim()) {
+    newErrors.password = "Password is required";
+  }
+
+  const expiryDate = new Date(formData.portalExpiryDate);
+
+  if (expiryDate.getTime() < new Date().getTime()) {
+    newErrors.portalExpiryDate = "Date is Invalid";
+  }
+
+  setErrors(newErrors);
+
+  return newErrors;
+};
+
+
   const handleNavClick = (section: string) => {
     setActiveSection(section)
     setSearchTerm('')
     setSidebarOpen(false)
   }
 
+  
   useEffect(() => {
     fetch("http://localhost:3000/admin/dashboard", {
       method: "GET",
@@ -83,11 +138,11 @@ function AdminDashboard() {
             new Date(users[i].portalExpiryDate).getTime() < Date.now()
               ? "expired"
               : "active",
-          expiresAt: users[i].portalExpiryDate.split("T")[0]
+          portalExpiryDate: users[i].portalExpiryDate.split("T")[0]
         }
         if (user.status === "active") {
           activeClients.push(user);
-          const expiryDate = new Date(user.expiresAt);
+          const expiryDate = new Date(user.portalExpiryDate);
           if (expiryDate < new Date())
             setExpired(expired + 1);
         }
@@ -100,6 +155,47 @@ function AdminDashboard() {
       showToast(err.message, 'error');
     });
   }, []);
+
+  const addClient = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    console.log(formData);
+    e.preventDefault();
+    const validationErrors = validateForm();
+
+    if (Object.keys(validationErrors).length > 0) {
+      const errorMessages = Object.values(validationErrors);
+      showToast(
+        errorMessages[0] || "Please fill in all required fields",
+        "error"
+      );
+      return;
+    }
+
+    fetch("http://localhost:3000/admin/clients", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formData),
+    }).then(async (res)=>{
+      const data = await res.json();
+      if(!res)
+        throw new Error(data.message);
+      return data;
+    }).then((data) => {
+      const newClient:Client = data.client;
+      newClient.portalExpiryDate = newClient.portalExpiryDate.toString().split("T")[0];
+      newClient.status = "active";
+      const updatedClients = [...clients,newClient];
+      const updatedActiveClients = [...activeClients,newClient];
+      setClients(updatedClients);
+      setActiveClients(updatedActiveClients);
+      showToast(data.message,"success");
+    }).catch((err)=>{
+      showToast(err.message,"error");
+    });
+    setShowModal(false);
+  }
+
 
   return (
     <div className="dashboard-layout">
@@ -262,7 +358,7 @@ function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {clients.slice(0, 3).map((client) => (
+                    {clients.slice(-3).map((client) => (
                       <tr key={client.id}>
                         <td style={{ fontWeight: 500 }}>{client.institutionName}</td>
                         <td style={{ color: 'var(--color-text-muted)' }}>{client.email}</td>
@@ -322,9 +418,9 @@ function AdminDashboard() {
                           {client.status}
                         </span>
                       </td>
-                      <td style={{ color: 'var(--color-text-muted)' }}>{client.expiresAt}</td>
+                      <td style={{ color: 'var(--color-text-muted)' }}>{client.portalExpiryDate}</td>
                       <td>
-                        <button className="action-btn edit">
+                        <button className="action-btn edit" onClick={() => setShowModal(true)}>
                           <Pencil size={14} />
                         </button>
                         <button className="action-btn delete">
@@ -518,25 +614,25 @@ function AdminDashboard() {
               <form className="modal-form">
                 <div className="form-group">
                   <label className="form-label">Institution Name</label>
-                  <input type="text" className="form-input" placeholder="Enter institution name" />
+                  <input type="text" className="form-input" placeholder="Enter institution name" onChange={(e) => handleInputChange('institutionName', e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Email Address</label>
-                  <input type="email" className="form-input" placeholder="Enter email address" />
+                  <input type="email" className="form-input" placeholder="Enter email address" onChange={(e) => handleInputChange('email', e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Password</label>
-                  <input type="password" className="form-input" placeholder="Create password" />
+                  <input type="password" className="form-input" placeholder="Create password" onChange={(e) => handleInputChange('password', e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Portal Expiry Date</label>
-                  <input type="date" className="form-input" />
+                  <input type="date" className="form-input" onChange={(e) => handleInputChange('portalExpiryDate', e.target.value)} />
                 </div>
               </form>
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={() => setShowModal(false)}>Create Client</button>
+              <button className="btn btn-primary" onClick={(e) => addClient(e)}>Create Client</button>
             </div>
           </div>
         </div>
