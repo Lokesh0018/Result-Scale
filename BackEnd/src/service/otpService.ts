@@ -3,7 +3,7 @@ import Student from '../models/Student'
 import mongoose from 'mongoose'
 
 export class OTPService {
-  private static transporter = nodemailer.createTransporter({
+  private static transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,

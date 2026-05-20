@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useInfraData } from './useInfraData'
+// @ts-ignore: allow side-effect CSS import without type declarations
 import './infra.css'
 
 type Section = 'overview' | 'traffic' | 'institutions' | 'audit' | 'api' | 'settings'
