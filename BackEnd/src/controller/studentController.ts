@@ -18,7 +18,7 @@ export const login = async (req: Request, res: Response) => {
         });
     }
     catch (err: any) {
-        if (err.message === "Student not found !")
+        if (err.message === "Student not found!")
             return res.status(404).json({
                 success: false,
                 message: err.message
@@ -26,6 +26,12 @@ export const login = async (req: Request, res: Response) => {
 
         if (err.message === "Invalid credentials")
             return res.status(401).json({
+                success: false,
+                message: err.message,
+            });
+
+        if (err.message === "Portal Access Expired !")
+            return res.status(403).json({
                 success: false,
                 message: err.message,
             });

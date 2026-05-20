@@ -819,10 +819,10 @@ function ClientDashboard() {
         </div>
       )}
       {deleteModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay" onClick={() => setDeleteModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">Delete Client</h3>
+              <h3 className="modal-title">Delete Student</h3>
               <button className="modal-close" onClick={() => setDeleteModal(false)}>
                 <X size={20} />
               </button>
@@ -831,8 +831,8 @@ function ClientDashboard() {
               Are you sure you want to delete {formData.oldEmail}?
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={(e) => deleteStudent(e)}>Delete Client</button>
+              <button className="btn btn-outline" onClick={() => setDeleteModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={(e) => deleteStudent(e)}>Delete Student</button>
             </div>
           </div>
         </div>

@@ -35,6 +35,12 @@ export const login = async (req: Request, res: Response) => {
                 message: err.message,
             });
 
+        if (err.message === "Portal Access Expired !")
+            return res.status(403).json({
+                success: false,
+                message: err.message,
+            });
+
         return res.status(500).json({
             success: false,
             message: "Internal server Error",

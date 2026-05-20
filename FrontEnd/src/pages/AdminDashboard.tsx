@@ -235,8 +235,8 @@ function AdminDashboard() {
         const newClient: Client = data.client;
         newClient.portalExpiryDate = newClient.portalExpiryDate.toString().split("T")[0];
         newClient.status = "active";
-        const updatedClients = [...clients, newClient];
-        const updatedActiveClients = [...activeClients, newClient];
+        const updatedClients = [...clients.filter((client) => client.email !== formData.oldEmail), newClient];
+        const updatedActiveClients = [...activeClients.filter((client) => client.email !== formData.oldEmail), newClient];
         setClients(updatedClients);
         setActiveClients(updatedActiveClients);
         showToast(data.message, "success");
@@ -709,7 +709,7 @@ function AdminDashboard() {
       )}
 
       {deleteModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay" onClick={() => setDeleteModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">Delete Client</h3>
@@ -721,7 +721,7 @@ function AdminDashboard() {
               Are you sure you want to delete {formData.oldEmail}?
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
+              <button className="btn btn-outline" onClick={() => setDeleteModal(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={(e) => deleteClient(e)}>Delete Client</button>
             </div>
           </div>

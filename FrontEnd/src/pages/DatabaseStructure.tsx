@@ -10,10 +10,9 @@ const collections = [
     fields: [
       { name: '_id', type: 'ObjectId' },
       { name: 'email', type: 'String' },
-      { name: 'password', type: 'String (hashed)' },
+      { name: 'password', type: 'String' },
       { name: 'name', type: 'String' },
       { name: 'role', type: 'String' },
-      { name: 'createdAt', type: 'Date' },
     ]
   },
   {
@@ -21,12 +20,12 @@ const collections = [
     icon: 'blue',
     fields: [
       { name: '_id', type: 'ObjectId' },
-      { name: 'institutionName', type: 'String' },
       { name: 'email', type: 'String' },
-      { name: 'password', type: 'String (hashed)' },
-      { name: 'portalExpiresAt', type: 'Date' },
-      { name: 'status', type: 'String (enum)' },
-      { name: 'createdAt', type: 'Date' },
+      { name: 'password', type: 'String' },
+      { name: 'role', type: 'String' },
+      { name: 'institutionName', type: 'String' },
+      { name: 'students', type: 'Number' },
+      { name: 'portalExpiryDate', type: 'Date' },
     ]
   },
   {
@@ -35,28 +34,14 @@ const collections = [
     fields: [
       { name: '_id', type: 'ObjectId' },
       { name: 'clientId', type: 'ObjectId (ref)' },
-      { name: 'rollNumber', type: 'String' },
       { name: 'name', type: 'String' },
       { name: 'email', type: 'String' },
-      { name: 'program', type: 'String' },
+      { name: 'rollNo', type: 'String' },
+      { name: 'institutionName', type: 'String' },
       { name: 'semester', type: 'Number' },
-      { name: 'createdAt', type: 'Date' },
-    ]
-  },
-  {
-    name: 'results',
-    icon: 'orange',
-    fields: [
-      { name: '_id', type: 'ObjectId' },
-      { name: 'studentId', type: 'ObjectId (ref)' },
-      { name: 'clientId', type: 'ObjectId (ref)' },
-      { name: 'semester', type: 'Number' },
-      { name: 'subjects', type: 'Array<Object>' },
       { name: 'sgpa', type: 'Number' },
-      { name: 'cgpa', type: 'Number' },
-      { name: 'totalCredits', type: 'Number' },
-      { name: 'status', type: 'String (enum)' },
-      { name: 'publishedAt', type: 'Date' },
+      { name: 'otp', type: 'String' },
+      { name: 'otpExpiry', type: 'Date' },
     ]
   },
 ]
