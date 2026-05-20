@@ -24,8 +24,7 @@ export const AddStudent = async (clientId: string, name: string, email: string, 
         semester,
         sgpa,
     });
-    client.students = (client.students || 0) + 1;
-    await client.save();
+    await Client.findByIdAndUpdate(clientId, { $inc: { students: 1 } });
     return student;
 }
 

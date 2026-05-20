@@ -194,8 +194,10 @@ function ClientDashboard() {
           throw new Error(data.message);
         return data;
       }).then((data) => {
-        const updatedStudents = [...students,data.student]
+        const updatedStudents = [...students, data.student];
         setStudents(updatedStudents);
+        const totalSemesters = updatedStudents.reduce((acc, student) => acc + student.semester, 0);
+        setSemester(totalSemesters);
         showToast(data.message, "success");
       }).catch((err) => {
         showToast(err.message, "error");
@@ -217,12 +219,13 @@ function ClientDashboard() {
         const newStudent: Student = data.student;
         const updatedStudents = [...students.filter((student)=>student.email !== formData.oldEmail), newStudent];
         setStudents(updatedStudents);
+        const totalSemesters = updatedStudents.reduce((acc, student) => acc + student.semester, 0);
+        setSemester(totalSemesters);
         showToast(data.message, "success");
       }).catch((err) => {
         showToast(err.message, "error");
       });
     }
-    setSemester(students.reduce((acc,student) => acc + student.semester,0));
     setShowModal(false);
   };
 
@@ -245,13 +248,14 @@ function ClientDashboard() {
       const deletedStudent: Student = data.student;
       const updatedStudents = students.filter((student) => student.email !== deletedStudent.email);
       setStudents(updatedStudents);
+      const totalSemesters = updatedStudents.reduce((acc, student) => acc + student.semester, 0);
+      setSemester(totalSemesters);
       showToast(data.message, "success");
     }).catch((err) => {
       showToast(err.message, "error");
     });
     setDeleteModal(false);
-    setSemester(students.reduce((acc,student) => acc + student.semester,0));
-  }
+  };
 
   const parseCsvRows = (csvText: string) => {
     const rows = csvText
@@ -338,7 +342,12 @@ function ClientDashboard() {
         .map((result) => result.value);
 
       if (successfulUploads.length > 0) {
-        setStudents((prev) => [...prev, ...successfulUploads]);
+        setStudents((prev) => {
+          const updated = [...prev, ...successfulUploads];
+          const totalSemesters = updated.reduce((acc, student) => acc + student.semester, 0);
+          setSemester(totalSemesters);
+          return updated;
+        });
       }
 
       const failedUploads = uploadResponses.filter((result) => result.status === 'rejected');
