@@ -12,6 +12,7 @@ import { useTheme } from "../components/ThemeProvider";
 import { useToast } from '../components/Toast';
 import { Client, Student } from '../types/Types';
 
+const API_URL = (import.meta as any).env.VITE_API_URL;
 
 function AdminDashboard() {
   const { showToast } = useToast();
@@ -115,26 +116,6 @@ function AdminDashboard() {
       return sortOrder === 'asc' ? comparison : -comparison;
     });
 
-  const processedStudents = students
-    .filter(student =>
-      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.rollNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.institutionName.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .sort((a, b) => {
-      let comparison = 0;
-      if (studentSortBy === 'rollNo') {
-        comparison = a.rollNo.localeCompare(b.rollNo);
-      } else if (studentSortBy === 'name') {
-        comparison = a.name.localeCompare(b.name);
-      } else if (studentSortBy === 'institutionName') {
-        comparison = a.institutionName.localeCompare(b.institutionName);
-      } else if (studentSortBy === 'sgpa') {
-        comparison = a.sgpa - b.sgpa;
-      }
-      return studentSortOrder === 'asc' ? comparison : -comparison;
-    });
-
   const processedLogs = logs
     .filter(log => {
       const matchesSearch = log.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -217,7 +198,7 @@ function AdminDashboard() {
 
 
   const fetchLogs = () => {
-    fetch("http://localhost:3000/admin/logs", {
+    fetch(`${API_URL}/admin/logs`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -236,7 +217,7 @@ function AdminDashboard() {
 
   useEffect(() => {
     if (activeSection === "dashboard" || activeSection === "logs") {
-      fetch("http://localhost:3000/admin/students", {
+      fetch(`${API_URL}/admin/students`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -254,7 +235,7 @@ function AdminDashboard() {
     }
 
     if (activeSection === "dashboard" || activeSection === "clients") {
-      fetch("http://localhost:3000/admin/dashboard", {
+      fetch(`${API_URL}/admin/dashboard`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -304,7 +285,7 @@ function AdminDashboard() {
     const userEmail = localStorage.getItem("userEmail") || "admin@resultscale.com";
     const userRole = localStorage.getItem("userRole") || "admin";
     if (addOrUpdate) {
-      fetch("http://localhost:3000/admin/clients", {
+      fetch(`${API_URL}/admin/clients`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -328,7 +309,7 @@ function AdminDashboard() {
       });
     }
     else {
-      fetch(`http://localhost:3000/admin/clients/${formData.oldEmail}`, {
+      fetch(`${API_URL}/admin/clients/${formData.oldEmail}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -358,7 +339,7 @@ function AdminDashboard() {
     e.preventDefault();
     const userEmail = localStorage.getItem("userEmail") || "admin@resultscale.com";
     const userRole = localStorage.getItem("userRole") || "admin";
-    fetch(`http://localhost:3000/admin/clients/${formData.oldEmail}`, {
+    fetch(`${API_URL}/admin/clients/${formData.oldEmail}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -395,7 +376,7 @@ function AdminDashboard() {
     localStorage.setItem("userEmail", adminEmail);
 
     if (adminPassword) {
-      fetch(`http://localhost:3000/admin/password/${adminEmail}`, {
+      fetch(`${API_URL}/admin/password/${adminEmail}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

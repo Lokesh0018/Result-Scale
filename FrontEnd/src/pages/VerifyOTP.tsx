@@ -5,6 +5,8 @@ import { BarChart3, Mail } from 'lucide-react'
 import '../styles/student.css'
 import { useToast } from '../components/Toast';
 
+const API_URL = (import.meta as any).env.VITE_API_URL;
+
 function VerifyOTP() {
   const location = useLocation();
   const { showToast } = useToast();
@@ -53,7 +55,7 @@ function VerifyOTP() {
       showToast("Enter Valid OTP", "error");
       return;
     }
-    fetch("http://localhost:3000/student/verify-otp", {
+    fetch(`${API_URL}/student/verify-otp`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -82,7 +84,7 @@ function VerifyOTP() {
       showToast("Missing login information. Please try logging in again.", "error");
       return;
     }
-    fetch("http://localhost:3000/student/login", {
+    fetch(`${API_URL}/student/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

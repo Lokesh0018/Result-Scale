@@ -11,6 +11,8 @@ import { useTheme } from "../components/ThemeProvider";
 import { useToast } from '../components/Toast';
 import { Student } from '../types/Types';
 
+const API_URL = (import.meta as any).env.VITE_API_URL;
+
 
 function ClientDashboard() {
   const { showToast } = useToast();
@@ -116,7 +118,7 @@ function ClientDashboard() {
 
   useEffect(() => {
     if (activeSection === "dashboard" || activeSection === "students" || activeSection === "settings") {
-      fetch(`http://localhost:3000/client/dashboard/${clientId}`, {
+      fetch(`${API_URL}/client/dashboard/${clientId}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -194,7 +196,7 @@ function ClientDashboard() {
     }
     if (addOrUpdate) {
       console.log(formData);
-      fetch("http://localhost:3000/client/students", {
+      fetch(`${API_URL}/client/students`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -216,7 +218,7 @@ function ClientDashboard() {
       });
     }
     else {
-      fetch(`http://localhost:3000/client/students/${formData.oldEmail}`, {
+      fetch(`${API_URL}/client/students/${formData.oldEmail}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -243,7 +245,7 @@ function ClientDashboard() {
 
   const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    fetch(`http://localhost:3000/client/students/${formData.oldEmail}`, {
+    fetch(`${API_URL}/client/students/${formData.oldEmail}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -348,7 +350,7 @@ function ClientDashboard() {
 
       const uploadResponses = await Promise.allSettled(
         studentsFromCsv.map((student) =>
-          fetch("http://localhost:3000/client/students", {
+          fetch(`${API_URL}/client/students`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -406,7 +408,7 @@ function ClientDashboard() {
     if (clientPassword) {
       payload.password = clientPassword;
     }
-    fetch(`http://localhost:3000/client/profile/${clientId}`, {
+    fetch(`${API_URL}/client/profile/${clientId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
