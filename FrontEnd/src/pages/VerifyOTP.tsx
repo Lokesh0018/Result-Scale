@@ -9,6 +9,7 @@ function VerifyOTP() {
   const location = useLocation();
   const { showToast } = useToast();
   const email = location.state?.email;
+  const rollNo = location.state?.rollNo;
   const navigate = useNavigate()
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const [timer, setTimer] = useState(300)
@@ -77,9 +78,29 @@ function VerifyOTP() {
   }
 
   const handleResend = () => {
-    setTimer(60)
-    setCanResend(false)
-    setOtp(['', '', '', '', '', ''])
+    if (!email || !rollNo) {
+      showToast("Missing login information. Please try logging in again.", "error");
+      return;
+    }
+    fetch("http://localhost:3000/student/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email, rollNo }),
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message);
+      return data;
+    }).then(() => {
+      showToast('OTP resent to your email address!', 'success');
+      setTimer(300)
+      setCanResend(false)
+      setOtp(['', '', '', '', '', ''])
+    }).catch((err: any) => {
+      showToast(err.message, "error");
+    });
   }
 
   const formatTime = (seconds: number) => {

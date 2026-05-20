@@ -1,4 +1,5 @@
 import Student from "../models/Student";
+import Client from "../models/Client";
 import nodemailer from "nodemailer";
 
 const generateOtp = (): string => {
@@ -32,6 +33,10 @@ export const VerifyStudentLogin = async (email: string, rollNo: string) => {
 
     if (student.rollNo !== rollNo)
         throw new Error("Invalid credentials");
+
+    const client = await Client.findById(student.clientId);
+    if (client && new Date(client.portalExpiryDate).getTime() < Date.now())
+        throw new Error("Portal Access Expired !");
 
     const otp = generateOtp();
 

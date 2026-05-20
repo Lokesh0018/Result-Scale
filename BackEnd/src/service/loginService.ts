@@ -8,8 +8,12 @@ export const verifyLogin = async (email: string, password: string, role: Roles) 
     let user;
     if (role === "admin") 
         user = await Admin.findOne({ email });
-    if(role === "client")
+    if(role === "client") {
         user = await Client.findOne({email});
+        if (user && new Date(user.portalExpiryDate).getTime() < Date.now()) {
+            throw new Error("Portal Access Expired !");
+        }
+    }
     if (!user)
         throw new Error("User not found");
     if (user.password !== password)

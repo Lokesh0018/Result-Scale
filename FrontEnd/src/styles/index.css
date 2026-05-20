@@ -279,6 +279,11 @@ ul, ol {
   color: var(--color-primary);
 }
 
+.badge-info {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
 /* Table Styles */
 .table-container {
   overflow-x: auto;

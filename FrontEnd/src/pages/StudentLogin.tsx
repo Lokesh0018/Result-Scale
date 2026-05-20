@@ -31,14 +31,15 @@ function StudentLogin() {
     }
 
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    return newErrors
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) {
-      const errorMessages = Object.values(errors).filter(Boolean)
+    const validationErrors = validateForm()
+    if (Object.keys(validationErrors).length > 0) {
+      const errorMessages = Object.values(validationErrors).filter(Boolean)
       if (errorMessages.length > 0) {
         showToast(errorMessages[0] || 'Please fill in all required fields', 'error')
       }
@@ -60,6 +61,7 @@ function StudentLogin() {
       navigate('/student/verify-otp', {
         state: {
           email: formData.email,
+          rollNo: formData.rollNo,
         },
       });
     }).catch((err: any) => {

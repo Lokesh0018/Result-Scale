@@ -13,15 +13,18 @@ export const AddStudent = async (clientId: string, name: string, email: string, 
     if (existingStudent)
         throw new Error(`Already Exists with Email ${email}`);
     const client = await Client.findById(clientId);
+    if (!client)
+        throw new Error("Client not found !");
     const student = await Student.create({
         clientId,
         name,
         email,
         rollNo,
-        institutionName:client?.institutionName,
+        institutionName:client.institutionName,
         semester,
         sgpa,
-    })
+    });
+    await Client.findByIdAndUpdate(clientId, { $inc: { students: 1 } });
     return student;
 }
 
@@ -57,6 +60,8 @@ export const DeleteStudent = async (email: string, clientId: string) => {
         email,
         clientId
     });
+
+    await Client.findByIdAndUpdate(clientId, { $inc: { students: -1 } });
 
     return existingStudent;
 }
