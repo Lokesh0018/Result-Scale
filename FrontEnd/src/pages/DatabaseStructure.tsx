@@ -44,6 +44,20 @@ const collections = [
       { name: 'otpExpiry', type: 'Date' },
     ]
   },
+  {
+    name: 'activitylogs',
+    icon: 'orange',
+    fields: [
+      { name: '_id', type: 'ObjectId' },
+      { name: 'userEmail', type: 'String' },
+      { name: 'userRole', type: 'String' },
+      { name: 'action', type: 'String' },
+      { name: 'category', type: 'String' },
+      { name: 'details', type: 'String' },
+      { name: 'status', type: 'String' },
+      { name: 'timestamp', type: 'Date' },
+    ]
+  },
 ]
 
 const iconMap: Record<string, React.ReactNode> = {

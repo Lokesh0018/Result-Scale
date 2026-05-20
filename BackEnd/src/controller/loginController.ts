@@ -1,14 +1,15 @@
 import express, { Request, Response } from "express";
 import { verifyLogin } from "../service/loginService";
+import { LogActivity } from "../service/logService";
 import { Roles } from "../types/types";
 
 export const login = async (req: Request, res: Response) => {
+    const { email, password, role }: {
+        email: string,
+        password: string,
+        role: Roles
+    } = req.body;
     try {
-        const { email, password, role }: {
-            email: string,
-            password: string,
-            role: Roles
-        } = req.body;
         if (!email || !password || !role) {
             return res.status(400).json({
                 success: false,
@@ -16,6 +17,7 @@ export const login = async (req: Request, res: Response) => {
             });
         }
         const user = await verifyLogin(email, password, role);
+        await LogActivity(email, role, "Login Successful", "auth", `Successfully authenticated as ${role}`, "success");
         return res.status(200).json({
             success: true,
             message: "Login successful",
@@ -23,6 +25,9 @@ export const login = async (req: Request, res: Response) => {
         });
     }
     catch (err: any) {
+        if (email) {
+            await LogActivity(email, role || "unknown", "Login Failed", "auth", `Failed login attempt: ${err.message}`, "failure");
+        }
         if (err.message === "User not found")
             return res.status(404).json({
                 success: false,

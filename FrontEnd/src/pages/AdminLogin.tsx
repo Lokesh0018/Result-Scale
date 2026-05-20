@@ -69,6 +69,8 @@ function AdminLogin() {
     }).then((data) => {
       setData(data);
       showToast("Login successful! Redirecting...", "success");
+      localStorage.setItem("userEmail", data.user.email);
+      localStorage.setItem("userRole", data.user.role);
       navigate("/admin/dashboard");
     }).catch((err) => {
       showToast(err.message,'error');

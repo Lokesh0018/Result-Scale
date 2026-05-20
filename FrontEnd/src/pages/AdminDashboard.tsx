@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   BarChart3, LayoutDashboard, Users, Settings, LogOut,
   Bell, Building2, UserCheck, Clock, Menu, X,
-  Plus, Pencil, Trash2, Mail, Calendar, Shield, Database, MoonStar, Sun
+  Plus, Pencil, Trash2, Mail, Calendar, Shield, Database, MoonStar, Sun,
+  History, RotateCw, CheckCircle, XCircle
 } from 'lucide-react'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/dashboard.css'
@@ -52,6 +53,21 @@ function AdminDashboard() {
 
   const [studentSortBy, setStudentSortBy] = useState<'rollNo' | 'name' | 'institutionName' | 'sgpa'>('rollNo')
   const [studentSortOrder, setStudentSortOrder] = useState<'asc' | 'desc'>('asc')
+
+  interface ActivityLog {
+    _id: string;
+    userEmail: string;
+    userRole: string;
+    action: string;
+    category: 'auth' | 'student' | 'client' | 'system' | 'security';
+    details: string;
+    status: 'success' | 'failure';
+    timestamp: string;
+  }
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [filterCategory, setFilterCategory] = useState<'all' | 'auth' | 'student' | 'client' | 'system' | 'security'>('all');
+  const [filterLogStatus, setFilterLogStatus] = useState<'all' | 'success' | 'failure'>('all');
+  const [logSortOrder, setLogSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const updateClientLists = (allClients: Client[]) => {
     const active: Client[] = [];
@@ -110,6 +126,23 @@ function AdminDashboard() {
         comparison = a.sgpa - b.sgpa;
       }
       return studentSortOrder === 'asc' ? comparison : -comparison;
+    });
+
+  const processedLogs = logs
+    .filter(log => {
+      const matchesSearch = log.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.details.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCategory = filterCategory === 'all' || log.category === filterCategory;
+      const matchesStatus = filterLogStatus === 'all' || log.status === filterLogStatus;
+      
+      return matchesSearch && matchesCategory && matchesStatus;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      return logSortOrder === 'desc' ? timeB - timeA : timeA - timeB;
     });
 
   const handleInputChange = (field: string, value: string) => {
@@ -176,8 +209,26 @@ function AdminDashboard() {
   }
 
 
+  const fetchLogs = () => {
+    fetch("http://localhost:3000/admin/logs", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      }
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "failed");
+      return data;
+    }).then((data) => {
+      setLogs(data.logs);
+    }).catch((err) => {
+      showToast(err.message, 'error');
+    });
+  };
+
   useEffect(() => {
-    if (activeSection === "dashboard" || activeSection === "students") {
+    if (activeSection === "dashboard" || activeSection === "logs") {
       fetch("http://localhost:3000/admin/students", {
         method: "GET",
         headers: {
@@ -225,6 +276,10 @@ function AdminDashboard() {
         showToast(err.message, 'error');
       });
     }
+
+    if (activeSection === "logs") {
+      fetchLogs();
+    }
   }, [activeSection]);
 
   const addOrUpdateClient = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -239,11 +294,15 @@ function AdminDashboard() {
       );
       return;
     }
+    const userEmail = localStorage.getItem("userEmail") || "admin@resultscale.com";
+    const userRole = localStorage.getItem("userRole") || "admin";
     if (addOrUpdate) {
       fetch("http://localhost:3000/admin/clients", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-User-Email": userEmail,
+          "X-User-Role": userRole
         },
         body: JSON.stringify(formData),
       }).then(async (res) => {
@@ -266,6 +325,8 @@ function AdminDashboard() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "X-User-Email": userEmail,
+          "X-User-Role": userRole
         },
         body: JSON.stringify(formData),
       }).then(async (res) => {
@@ -288,10 +349,14 @@ function AdminDashboard() {
 
   const deleteClient = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
+    const userEmail = localStorage.getItem("userEmail") || "admin@resultscale.com";
+    const userRole = localStorage.getItem("userRole") || "admin";
     fetch(`http://localhost:3000/admin/clients/${formData.oldEmail}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
+        "X-User-Email": userEmail,
+        "X-User-Role": userRole
       }
     }).then(async (res) => {
       const data = await res.json();
@@ -344,11 +409,11 @@ function AdminDashboard() {
               Clients
             </button>
             <button
-              className={`nav-item ${activeSection === 'students' ? 'active' : ''}`}
-              onClick={() => handleNavClick('students')}
+              className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`}
+              onClick={() => handleNavClick('logs')}
             >
-              <Users size={18} />
-              Students
+              <History size={18} />
+              Activity Logs
             </button>
           </div>
 
@@ -388,7 +453,7 @@ function AdminDashboard() {
             <h1 className="page-title">
               {activeSection === 'dashboard' && 'Admin Dashboard'}
               {activeSection === 'clients' && 'Client Management'}
-              {activeSection === 'students' && 'All Students'}
+              {activeSection === 'logs' && 'Platform Activity Logs'}
               {activeSection === 'settings' && 'Settings'}
             </h1>
           </div>
@@ -805,11 +870,15 @@ function AdminDashboard() {
             </div>
           )}
 
-          {/* Students Section */}
-          {activeSection === 'students' && (
+          {/* Activity Logs Section */}
+          {activeSection === 'logs' && (
             <div className="table-section">
-              <div className="table-header" style={{ borderBottom: 'none' }}>
-                <h2 className="table-title">All Student Records</h2>
+              <div className="table-header" style={{ borderBottom: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 className="table-title">System Audit & Activity Logs</h2>
+                <button className="btn btn-outline" onClick={fetchLogs} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <RotateCw size={14} />
+                  Refresh
+                </button>
               </div>
 
               {/* Filters Toolbar */}
@@ -819,7 +888,7 @@ function AdminDashboard() {
                   <input
                     type="text"
                     className="search-input"
-                    placeholder="Search students..."
+                    placeholder="Search logs by email, action..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     style={{ margin: 0 }}
@@ -827,47 +896,106 @@ function AdminDashboard() {
                 </div>
 
                 <div className="filter-group">
-                  <span className="filter-label">Sort By</span>
+                  <span className="filter-label">Category</span>
                   <select
                     className="filter-select"
-                    value={studentSortBy}
-                    onChange={(e) => setStudentSortBy(e.target.value as any)}
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value as any)}
                   >
-                    <option value="rollNo">Roll Number</option>
-                    <option value="name">Name</option>
-                    <option value="institutionName">Institution</option>
-                    <option value="sgpa">SGPA</option>
+                    <option value="all">All Categories</option>
+                    <option value="auth">Authentication</option>
+                    <option value="student">Student CRUD</option>
+                    <option value="client">Client CRUD</option>
+                    <option value="system">System Events</option>
+                    <option value="security">Security</option>
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <span className="filter-label">Status</span>
+                  <select
+                    className="filter-select"
+                    value={filterLogStatus}
+                    onChange={(e) => setFilterLogStatus(e.target.value as any)}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="success">Success Only</option>
+                    <option value="failure">Failure Only</option>
                   </select>
                 </div>
 
                 <button
                   className="sort-btn"
-                  onClick={() => setStudentSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                  onClick={() => setLogSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
                 >
-                  Order: {studentSortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                  Order: {logSortOrder === 'asc' ? 'Oldest First' : 'Newest First'}
                 </button>
               </div>
 
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Roll No</th>
-                    <th>Name</th>
-                    <th>Institution</th>
-                    <th>Email</th>
-                    <th>SGPA</th>
+                    <th>Timestamp</th>
+                    <th>User / Actor</th>
+                    <th>Category</th>
+                    <th>Action</th>
+                    <th>Details</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {processedStudents.map((student) => (
-                    <tr key={student.rollNo}>
-                      <td style={{ fontWeight: 500 }}>{student.rollNo}</td>
-                      <td>{student.name}</td>
-                      <td>{student.institutionName}</td>
-                      <td style={{ color: 'var(--color-text-muted)' }}>{student.email}</td>
-                      <td>{student.sgpa.toFixed(1)}</td>
+                  {processedLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>
+                        No activity logs found matching the filter criteria.
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    processedLogs.map((log) => {
+                      let categoryBadgeClass = 'badge-success';
+                      if (log.category === 'auth') categoryBadgeClass = 'badge-info';
+                      else if (log.category === 'client') categoryBadgeClass = 'badge-primary';
+                      else if (log.category === 'student') categoryBadgeClass = 'badge-success';
+                      else if (log.category === 'system') categoryBadgeClass = 'badge-warning';
+                      else if (log.category === 'security') categoryBadgeClass = 'badge-error';
+
+                      return (
+                        <tr key={log._id}>
+                          <td style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                            {new Date(log.timestamp).toLocaleString()}
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontWeight: 500 }}>{log.userEmail}</span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'capitalize' }}>
+                                {log.userRole}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`badge ${categoryBadgeClass}`} style={{ textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                              {log.category}
+                            </span>
+                          </td>
+                          <td style={{ fontWeight: 500 }}>{log.action}</td>
+                          <td style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.details}>
+                            {log.details}
+                          </td>
+                          <td>
+                            {log.status === 'success' ? (
+                              <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <CheckCircle size={12} /> Success
+                              </span>
+                            ) : (
+                              <span className="badge badge-error" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <XCircle size={12} /> Failure
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

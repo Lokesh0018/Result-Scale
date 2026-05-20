@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import { VerifyStudentLogin, VerifyOtp } from "../service/studentService";
+import { LogActivity } from "../service/logService";
 
 export const login = async (req: Request, res: Response) => {
+    const { email, rollNo } = req.body;
     try {
-        const { email, rollNo } = req.body;
         if (!email || !rollNo) {
             return res.status(400).json({
                 success: false,
@@ -11,6 +12,7 @@ export const login = async (req: Request, res: Response) => {
             });
         }
         const student = await VerifyStudentLogin(email, rollNo);
+        await LogActivity(email, "student", "Login OTP Requested", "auth", `OTP sent for roll number: ${rollNo}`, "success");
         return res.status(200).json({
             success: true,
             message: "Login successful",
@@ -18,6 +20,9 @@ export const login = async (req: Request, res: Response) => {
         });
     }
     catch (err: any) {
+        if (email) {
+            await LogActivity(email, "student", "Login OTP Request Failed", "auth", `Failed login request: ${err.message}`, "failure");
+        }
         if (err.message === "Student not found!")
             return res.status(404).json({
                 success: false,
@@ -45,9 +50,10 @@ export const login = async (req: Request, res: Response) => {
 }
 
 export const verifyOtp = async (req: Request, res: Response) => {
+    const { email, otp } = req.body;
     try {
-        const { email, otp } = req.body;
         const student = await VerifyOtp(email, otp);
+        await LogActivity(email, "student", "Login Successful", "auth", "OTP verified successfully. Access granted.", "success");
         return res.status(200).json({
             success: true,
             message: "OTP verified Successfully",
@@ -55,6 +61,9 @@ export const verifyOtp = async (req: Request, res: Response) => {
         });
     }
     catch (err: any) {
+        if (email) {
+            await LogActivity(email, "student", "OTP Verification Failed", "auth", `Verification failed: ${err.message}`, "failure");
+        }
         if (err.message === "Student not found!")
             return res.status(404).json({
                 success: false,
