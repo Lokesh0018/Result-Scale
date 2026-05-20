@@ -258,7 +258,9 @@ function ClientDashboard() {
   };
 
   const parseCsvRows = (csvText: string) => {
-    const rows = csvText
+    // Remove byte order mark (BOM) if present
+    const cleanText = csvText.replace(/^\uFEFF/, "");
+    const rows = cleanText
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean);
@@ -267,23 +269,36 @@ function ClientDashboard() {
       throw new Error("CSV must include a header row and at least one data row.");
     }
 
-    const headers = rows[0].split(",").map((header) => header.trim().toLowerCase());
-    const requiredHeaders = ["roll_no", "name", "email", "semester", "sgpa"];
+    // Split headers, trim, and handle surrounding quotes
+    const headers = rows[0].split(",").map((header) => {
+      return header.replace(/^["']|["']$/g, "").trim().toLowerCase();
+    });
 
-    const missingHeaders = requiredHeaders.filter((header) => !headers.includes(header));
+    // Required column names must remain exactly as: rollNo, name, email, semester, sgpa
+    const requiredHeaders = ["rollNo", "name", "email", "semester", "sgpa"];
+
+    // Find missing headers case-insensitively
+    const missingHeaders = requiredHeaders.filter((reqHeader) => {
+      return !headers.includes(reqHeader.toLowerCase());
+    });
+
     if (missingHeaders.length > 0) {
       throw new Error(`Missing required CSV headers: ${missingHeaders.join(", ")}`);
     }
 
     return rows.slice(1).map((row, index) => {
-      const values = row.split(",").map((value) => value.trim());
-      const getValue = (key: string) => values[headers.indexOf(key)] ?? "";
+      // Split row values, handling quotes
+      const values = row.split(",").map((value) => value.replace(/^["']|["']$/g, "").trim());
+      const getValue = (key: string) => {
+        const headerIndex = headers.indexOf(key.toLowerCase());
+        return headerIndex !== -1 ? (values[headerIndex] ?? "") : "";
+      };
 
       const parsedSemester = Number(getValue("semester"));
       const parsedSgpa = Number(getValue("sgpa"));
 
-      if (!getValue("roll_no") || !getValue("name") || !getValue("email")) {
-        throw new Error(`Row ${index + 2}: roll_no, name and email are required.`);
+      if (!getValue("rollNo") || !getValue("name") || !getValue("email")) {
+        throw new Error(`Row ${index + 2}: rollNo, name and email are required.`);
       }
 
       if (!Number.isFinite(parsedSemester) || parsedSemester <= 0) {
@@ -296,7 +311,7 @@ function ClientDashboard() {
 
       return {
         clientId,
-        rollNo: getValue("roll_no"),
+        rollNo: getValue("rollNo"),
         name: getValue("name"),
         email: getValue("email"),
         semester: parsedSemester,
