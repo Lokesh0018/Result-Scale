@@ -1,0 +1,18 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.router = void 0;
+const express_1 = __importDefault(require("express"));
+const loginController_1 = require("../controller/loginController");
+const adminController_1 = require("../controller/adminController");
+exports.router = express_1.default.Router();
+exports.router.post("/login", loginController_1.login);
+exports.router.get("/dashboard", adminController_1.getDashboard);
+exports.router.post("/clients", adminController_1.addClient);
+exports.router.put("/clients/:email", adminController_1.updateClient);
+exports.router.delete("/clients/:email", adminController_1.deleteClient);
+exports.router.get("/students", adminController_1.getStudents);
+exports.router.get("/logs", adminController_1.getActivityLogs);
+exports.router.patch("/password/:email", adminController_1.updatePassword);
