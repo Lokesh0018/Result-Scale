@@ -44,17 +44,73 @@ function AdminDashboard() {
   });
 
   const [addOrUpdate, setAddOrUpdate] = useState(true);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'expired'>('all')
+  const [sortBy, setSortBy] = useState<'institutionName' | 'students' | 'portalExpiryDate'>('institutionName')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [tooltipData, setTooltipData] = useState<{ x: number; y: number; title: string; value: string } | null>(null)
 
-  const filteredClients = clients.filter(client =>
-    client.institutionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const [studentSortBy, setStudentSortBy] = useState<'rollNo' | 'name' | 'institutionName' | 'sgpa'>('rollNo')
+  const [studentSortOrder, setStudentSortOrder] = useState<'asc' | 'desc'>('asc')
 
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.rollNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.institutionName.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const updateClientLists = (allClients: Client[]) => {
+    const active: Client[] = [];
+    let expiredCount = 0;
+    const processed = allClients.map(c => {
+      const isExpired = new Date(c.portalExpiryDate).getTime() < Date.now();
+      const updatedStatus = isExpired ? 'expired' : 'active';
+      const updated = { ...c, status: updatedStatus as 'active' | 'expired' };
+      if (updatedStatus === 'active') {
+        active.push(updated);
+      } else {
+        expiredCount++;
+      }
+      return updated;
+    });
+    setClients(processed);
+    setActiveClients(active);
+    setExpired(expiredCount);
+  };
+
+  const processedClients = clients
+    .filter(client => {
+      const matchesSearch = client.institutionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.email.toLowerCase().includes(searchTerm.toLowerCase());
+      if (filterStatus === 'active') return matchesSearch && client.status === 'active';
+      if (filterStatus === 'expired') return matchesSearch && client.status === 'expired';
+      return matchesSearch;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'institutionName') {
+        comparison = a.institutionName.localeCompare(b.institutionName);
+      } else if (sortBy === 'students') {
+        comparison = a.students - b.students;
+      } else if (sortBy === 'portalExpiryDate') {
+        comparison = new Date(a.portalExpiryDate).getTime() - new Date(b.portalExpiryDate).getTime();
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+  const processedStudents = students
+    .filter(student =>
+      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.rollNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.institutionName.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      let comparison = 0;
+      if (studentSortBy === 'rollNo') {
+        comparison = a.rollNo.localeCompare(b.rollNo);
+      } else if (studentSortBy === 'name') {
+        comparison = a.name.localeCompare(b.name);
+      } else if (studentSortBy === 'institutionName') {
+        comparison = a.institutionName.localeCompare(b.institutionName);
+      } else if (studentSortBy === 'sgpa') {
+        comparison = a.sgpa - b.sgpa;
+      }
+      return studentSortOrder === 'asc' ? comparison : -comparison;
+    });
 
   const handleInputChange = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value })
@@ -121,7 +177,25 @@ function AdminDashboard() {
 
 
   useEffect(() => {
-    if (activeSection === "dashboard") {
+    if (activeSection === "dashboard" || activeSection === "students") {
+      fetch("http://localhost:3000/admin/students", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        }
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok)
+          throw new Error(data.message || "failed");
+        return data;
+      }).then((data) => {
+        setStudents(data.students);
+      }).catch((err) => {
+        showToast(err.message, 'error');
+      });
+    }
+
+    if (activeSection === "dashboard" || activeSection === "clients") {
       fetch("http://localhost:3000/admin/dashboard", {
         method: "GET",
         headers: {
@@ -134,48 +208,19 @@ function AdminDashboard() {
         return data;
       }).then((data) => {
         const users = data.data;
-        const clients = [];
-        const activeClients = [];
+        const allClients: Client[] = [];
         for (let i = 0; i < users.length; i++) {
           const user: Client = {
             id: i + 1,
             institutionName: users[i].institutionName,
             email: users[i].email,
             students: users[i].students,
-            status:
-              new Date(users[i].portalExpiryDate).getTime() < Date.now()
-                ? "expired"
-                : "active",
+            status: "active",
             portalExpiryDate: users[i].portalExpiryDate.split("T")[0]
           }
-          if (user.status === "active") {
-            activeClients.push(user);
-            const expiryDate = new Date(user.portalExpiryDate);
-            if (expiryDate < new Date())
-              setExpired(expired + 1);
-          }
-          clients.push(user);
+          allClients.push(user);
         }
-        setClients(clients);
-        setActiveClients(activeClients);
-      }).catch((err) => {
-        showToast(err.message, 'error');
-      });
-    }
-    if (activeSection === "students") {
-      fetch("http://localhost:3000/admin/students", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        }
-      }).then(async (res) => {
-        const data = await res.json();
-        if (!res.ok)
-          throw new Error(data.message || "failed");
-        return data;
-      }).then((data) => {
-        const users = data.students;
-        setStudents(users);
+        updateClientLists(allClients);
       }).catch((err) => {
         showToast(err.message, 'error');
       });
@@ -209,11 +254,8 @@ function AdminDashboard() {
       }).then((data) => {
         const newClient: Client = data.client;
         newClient.portalExpiryDate = newClient.portalExpiryDate.toString().split("T")[0];
-        newClient.status = "active";
         const updatedClients = [...clients.filter((client) => client.email !== formData.oldEmail), newClient];
-        const updatedActiveClients = [...activeClients, newClient];
-        setClients(updatedClients);
-        setActiveClients(updatedActiveClients);
+        updateClientLists(updatedClients);
         showToast(data.message, "success");
       }).catch((err) => {
         showToast(err.message, "error");
@@ -234,11 +276,8 @@ function AdminDashboard() {
       }).then((data) => {
         const newClient: Client = data.client;
         newClient.portalExpiryDate = newClient.portalExpiryDate.toString().split("T")[0];
-        newClient.status = "active";
         const updatedClients = [...clients.filter((client) => client.email !== formData.oldEmail), newClient];
-        const updatedActiveClients = [...activeClients.filter((client) => client.email !== formData.oldEmail), newClient];
-        setClients(updatedClients);
-        setActiveClients(updatedActiveClients);
+        updateClientLists(updatedClients);
         showToast(data.message, "success");
       }).catch((err) => {
         showToast(err.message, "error");
@@ -262,9 +301,7 @@ function AdminDashboard() {
     }).then((data) => {
       const deletedClient: Client = data.client;
       const updatedClients = clients.filter((client) => client.email !== deletedClient.email);
-      const updatedActiveClients = activeClients.filter((client) => client.email !== deletedClient.email);
-      setClients(updatedClients);
-      setActiveClients(updatedActiveClients);
+      updateClientLists(updatedClients);
       showToast(data.message, "success");
     }).catch((err) => {
       showToast(err.message, "error");
@@ -378,7 +415,7 @@ function AdminDashboard() {
                     </div>
                   </div>
                   <div className="stat-card-value"> {clients.length}</div>
-                  <div className="stat-card-change positive">+{clients.length} this month</div>
+                  <div className="stat-card-change positive">+{clients.length} total institutions</div>
                 </div>
 
                 <div className="stat-card">
@@ -389,7 +426,9 @@ function AdminDashboard() {
                     </div>
                   </div>
                   <div className="stat-card-value">{activeClients.length}</div>
-                  <div className="stat-card-change">{Math.floor((activeClients.length / clients.length) * 100)}% of total</div>
+                  <div className="stat-card-change">
+                    {clients.length > 0 ? Math.floor((activeClients.length / clients.length) * 100) : 0}% of total
+                  </div>
                 </div>
 
                 <div className="stat-card">
@@ -400,18 +439,225 @@ function AdminDashboard() {
                     </div>
                   </div>
                   <div className="stat-card-value">{students.length}</div>
-                  <div className="stat-card-change positive">+{students.length} this month</div>
+                  <div className="stat-card-change positive">Across all active institutions</div>
                 </div>
 
                 <div className="stat-card">
                   <div className="stat-card-header">
-                    <span className="stat-card-title">Expiried</span>
+                    <span className="stat-card-title">Expired Portals</span>
                     <div className="stat-card-icon orange">
                       <Clock size={20} />
                     </div>
                   </div>
                   <div className="stat-card-value">{expired}</div>
-                  <div className="stat-card-change">Within 30 days</div>
+                  <div className="stat-card-change">Require renewal activation</div>
+                </div>
+              </div>
+
+              {/* Interactive Charts Grid */}
+              <div className="charts-grid">
+                {/* Chart 1: Top Client Institutions by Students */}
+                <div className="chart-card">
+                  <h3 className="chart-card-title">Top Institutions by Students</h3>
+                  <div className="chart-container">
+                    {clients.length === 0 ? (
+                      <div className="empty-state" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--color-text-muted)' }}>No client institutions found</div>
+                    ) : (
+                      (() => {
+                        const topClientsByStudents = [...clients]
+                          .sort((a, b) => b.students - a.students)
+                          .slice(0, 5);
+                        const maxStudents = Math.max(...clients.map(c => c.students), 10);
+                        
+                        return (
+                          <svg width="100%" height="100%" viewBox="0 0 350 160" preserveAspectRatio="xMidYMid meet">
+                            {topClientsByStudents.map((client, index) => {
+                              const barWidth = maxStudents > 0 ? (client.students / maxStudents) * 200 : 0;
+                              const yPos = index * 30 + 10;
+                              return (
+                                <g key={client.id || index}>
+                                  <text
+                                    x="10"
+                                    y={yPos + 10}
+                                    fontSize="10"
+                                    fontWeight="600"
+                                    fill="var(--color-text)"
+                                  >
+                                    {client.institutionName.length > 15 ? client.institutionName.substring(0, 15) + '...' : client.institutionName}
+                                  </text>
+                                  <rect
+                                    x="120"
+                                    y={yPos}
+                                    width="180"
+                                    height="12"
+                                    rx="3"
+                                    fill="var(--color-background)"
+                                  />
+                                  <rect
+                                    x="120"
+                                    y={yPos}
+                                    width={barWidth}
+                                    height="12"
+                                    rx="3"
+                                    fill="#3b82f6"
+                                    className="chart-bar"
+                                    onMouseEnter={(e) => {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      const parentRect = e.currentTarget.parentElement?.parentElement?.getBoundingClientRect();
+                                      if (parentRect) {
+                                        setTooltipData({
+                                          x: rect.left - parentRect.left + barWidth / 2 + 120,
+                                          y: rect.top - parentRect.top,
+                                          title: client.institutionName,
+                                          value: `${client.students.toLocaleString()} Enrolled Students`
+                                        });
+                                      }
+                                    }}
+                                    onMouseLeave={() => setTooltipData(null)}
+                                  />
+                                  <text
+                                    x={125 + barWidth}
+                                    y={yPos + 10}
+                                    fontSize="9"
+                                    fontWeight="700"
+                                    fill="var(--color-text-muted)"
+                                  >
+                                    {client.students}
+                                  </text>
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        );
+                      })()
+                    )}
+                    {tooltipData && (
+                      <div
+                        className="chart-tooltip"
+                        style={{
+                          left: `${tooltipData.x}px`,
+                          top: `${tooltipData.y}px`,
+                          opacity: 1
+                        }}
+                      >
+                        <div className="chart-tooltip-title">{tooltipData.title}</div>
+                        <div>{tooltipData.value}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Chart 2: Portal Expiry / Status breakdown */}
+                <div className="chart-card">
+                  <h3 className="chart-card-title">Portal Status Breakdown</h3>
+                  <div className="chart-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {clients.length === 0 ? (
+                      <div className="empty-state" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--color-text-muted)' }}>No portal data available</div>
+                    ) : (
+                      (() => {
+                        const activeCount = activeClients.length;
+                        const expiredCount = expired;
+                        const totalCount = clients.length;
+                        const activePct = totalCount > 0 ? (activeCount / totalCount) * 100 : 0;
+                        const expiredPct = totalCount > 0 ? (expiredCount / totalCount) * 100 : 0;
+                        const circ = 314.16;
+                        const activeOffset = circ - (circ * activePct) / 100;
+                        
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-around' }}>
+                            <div style={{ position: 'relative', width: '140px', height: '140px' }}>
+                              <svg width="140" height="140" viewBox="0 0 120 120">
+                                <circle
+                                  cx="60"
+                                  cy="60"
+                                  r="50"
+                                  fill="transparent"
+                                  stroke="var(--color-background)"
+                                  strokeWidth="14"
+                                />
+                                {expiredCount > 0 && (
+                                  <circle
+                                    cx="60"
+                                    cy="60"
+                                    r="50"
+                                    fill="transparent"
+                                    stroke="#f97316"
+                                    strokeWidth="14"
+                                    strokeDasharray={circ}
+                                    strokeDashoffset={0}
+                                    className="chart-pie-segment"
+                                    onMouseEnter={(e) => {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      const parentRect = e.currentTarget.parentElement?.parentElement?.parentElement?.getBoundingClientRect();
+                                      if (parentRect) {
+                                        setTooltipData({
+                                          x: rect.left - parentRect.left + 70,
+                                          y: rect.top - parentRect.top + 30,
+                                          title: 'Expired Portals',
+                                          value: `${expiredCount} (${expiredPct.toFixed(0)}%)`
+                                        });
+                                      }
+                                    }}
+                                    onMouseLeave={() => setTooltipData(null)}
+                                  />
+                                )}
+                                {activeCount > 0 && (
+                                  <circle
+                                    cx="60"
+                                    cy="60"
+                                    r="50"
+                                    fill="transparent"
+                                    stroke="#22c55e"
+                                    strokeWidth="14"
+                                    strokeDasharray={circ}
+                                    strokeDashoffset={activeOffset}
+                                    transform="rotate(-90 60 60)"
+                                    className="chart-pie-segment"
+                                    onMouseEnter={(e) => {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      const parentRect = e.currentTarget.parentElement?.parentElement?.parentElement?.getBoundingClientRect();
+                                      if (parentRect) {
+                                        setTooltipData({
+                                          x: rect.left - parentRect.left + 70,
+                                          y: rect.top - parentRect.top + 30,
+                                          title: 'Active Portals',
+                                          value: `${activeCount} (${activePct.toFixed(0)}%)`
+                                        });
+                                      }
+                                    }}
+                                    onMouseLeave={() => setTooltipData(null)}
+                                  />
+                                )}
+                              </svg>
+                              <div style={{
+                                position: 'absolute',
+                                inset: 0,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                pointerEvents: 'none'
+                              }}>
+                                <span style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--color-text)' }}>{totalCount}</span>
+                                <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Portals</span>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                                <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#22c55e' }}></span>
+                                <strong>Active:</strong> {activeCount} ({activePct.toFixed(0)}%)
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                                <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#f97316' }}></span>
+                                <strong>Expired:</strong> {expiredCount} ({expiredPct.toFixed(0)}%)
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -435,7 +681,7 @@ function AdminDashboard() {
                   </thead>
                   <tbody>
                     {clients.slice(-3).map((client) => (
-                      <tr key={client.id}>
+                      <tr key={client.id} className="clickable-row" onClick={() => setSelectedClient(client)}>
                         <td style={{ fontWeight: 500 }}>{client.institutionName}</td>
                         <td style={{ color: 'var(--color-text-muted)' }}>{client.email}</td>
                         <td>{client.students.toLocaleString()}</td>
@@ -455,21 +701,62 @@ function AdminDashboard() {
           {/* Clients Section */}
           {activeSection === 'clients' && (
             <div className="table-section">
-              <div className="table-header">
+              <div className="table-header" style={{ borderBottom: 'none' }}>
                 <h2 className="table-title">Client Institutions</h2>
                 <div className="table-actions">
+                  <button className="btn btn-primary" onClick={() => updateShowModal()}>
+                    <Plus size={16} />
+                    Add Client
+                  </button>
+                </div>
+              </div>
+
+              {/* Filters Toolbar */}
+              <div className="filter-toolbar">
+                <div className="filter-group">
+                  <span className="filter-label">Search</span>
                   <input
                     type="text"
                     className="search-input"
                     placeholder="Search clients..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{ margin: 0 }}
                   />
-                  <button className="btn btn-primary" onClick={() => updateShowModal()}>
-                    <Plus size={16} />
-                    Add Client
-                  </button>
                 </div>
+
+                <div className="filter-group">
+                  <span className="filter-label">Status</span>
+                  <select
+                    className="filter-select"
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value as any)}
+                  >
+                    <option value="all">All Portals</option>
+                    <option value="active">Active Only</option>
+                    <option value="expired">Expired Only</option>
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <span className="filter-label">Sort By</span>
+                  <select
+                    className="filter-select"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                  >
+                    <option value="institutionName">Institution Name</option>
+                    <option value="students">Student Count</option>
+                    <option value="portalExpiryDate">Expiry Date</option>
+                  </select>
+                </div>
+
+                <button
+                  className="sort-btn"
+                  onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                >
+                  Order: {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                </button>
               </div>
 
               <table className="data-table">
@@ -484,8 +771,16 @@ function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredClients.map((client) => (
-                    <tr key={client.id}>
+                  {processedClients.map((client) => (
+                    <tr
+                      key={client.id}
+                      className="clickable-row"
+                      onClick={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.closest('.action-btn')) return;
+                        setSelectedClient(client);
+                      }}
+                    >
                       <td style={{ fontWeight: 500 }}>{client.institutionName}</td>
                       <td style={{ color: 'var(--color-text-muted)' }}>{client.email}</td>
                       <td>{client.students.toLocaleString()}</td>
@@ -513,17 +808,44 @@ function AdminDashboard() {
           {/* Students Section */}
           {activeSection === 'students' && (
             <div className="table-section">
-              <div className="table-header">
+              <div className="table-header" style={{ borderBottom: 'none' }}>
                 <h2 className="table-title">All Student Records</h2>
-                <div className="table-actions">
+              </div>
+
+              {/* Filters Toolbar */}
+              <div className="filter-toolbar">
+                <div className="filter-group">
+                  <span className="filter-label">Search</span>
                   <input
                     type="text"
                     className="search-input"
                     placeholder="Search students..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{ margin: 0 }}
                   />
                 </div>
+
+                <div className="filter-group">
+                  <span className="filter-label">Sort By</span>
+                  <select
+                    className="filter-select"
+                    value={studentSortBy}
+                    onChange={(e) => setStudentSortBy(e.target.value as any)}
+                  >
+                    <option value="rollNo">Roll Number</option>
+                    <option value="name">Name</option>
+                    <option value="institutionName">Institution</option>
+                    <option value="sgpa">SGPA</option>
+                  </select>
+                </div>
+
+                <button
+                  className="sort-btn"
+                  onClick={() => setStudentSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                >
+                  Order: {studentSortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                </button>
               </div>
 
               <table className="data-table">
@@ -537,7 +859,7 @@ function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredStudents.map((student) => (
+                  {processedStudents.map((student) => (
                     <tr key={student.rollNo}>
                       <td style={{ fontWeight: 500 }}>{student.rollNo}</td>
                       <td>{student.name}</td>
@@ -723,6 +1045,115 @@ function AdminDashboard() {
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setDeleteModal(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={(e) => deleteClient(e)}>Delete Client</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedClient && (
+        <div className="modal-overlay" onClick={() => setSelectedClient(null)}>
+          <div className="modal" style={{ maxWidth: '650px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Institution Drill-down: {selectedClient.institutionName}</h3>
+              <button className="modal-close" onClick={() => setSelectedClient(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {(() => {
+                const clientStudents = students.filter(s => s.institutionName === selectedClient.institutionName);
+                const avgSgpa = clientStudents.length > 0
+                  ? clientStudents.reduce((acc, curr) => acc + curr.sgpa, 0) / clientStudents.length
+                  : 0;
+
+                const expiryDate = new Date(selectedClient.portalExpiryDate);
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const diffTime = expiryDate.getTime() - today.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const isExpired = diffDays <= 0;
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+                    {/* Expiry Alert banner */}
+                    <div className={`countdown-widget ${isExpired ? 'expired' : ''}`}>
+                      <Clock size={16} />
+                      {isExpired ? (
+                        <span>Expired: This institution's portal expired {Math.abs(diffDays)} days ago. Portal access is blocked.</span>
+                      ) : (
+                        <span>Active: Portal expires in {diffDays} days ({selectedClient.portalExpiryDate}).</span>
+                      )}
+                    </div>
+
+                    <div className="detail-grid">
+                      <div className="detail-card">
+                        <div className="detail-label">Client Email</div>
+                        <div className="detail-value">{selectedClient.email}</div>
+                      </div>
+                      <div className="detail-card">
+                        <div className="detail-label">Registered Students</div>
+                        <div className="detail-value">{clientStudents.length} / {selectedClient.students}</div>
+                      </div>
+                      <div className="detail-card">
+                        <div className="detail-label">Average SGPA</div>
+                        <div className="detail-value">{avgSgpa > 0 ? avgSgpa.toFixed(2) : 'N/A'}</div>
+                      </div>
+                      <div className="detail-card">
+                        <div className="detail-label">Portal Status</div>
+                        <div className="detail-value">
+                          <span className={`badge ${!isExpired ? 'badge-success' : 'badge-error'}`} style={{ display: 'inline-block' }}>
+                            {!isExpired ? 'Active' : 'Expired'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: 'var(--spacing-xs)', color: 'var(--color-text)' }}>Enrolled Students List ({clientStudents.length})</h4>
+                      <div className="detail-table-container">
+                        {clientStudents.length === 0 ? (
+                          <div style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '13px' }}>
+                            No students registered yet for this client.
+                          </div>
+                        ) : (
+                          <table className="detail-table">
+                            <thead>
+                              <tr>
+                                <th>Roll No</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>SGPA</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {clientStudents.map(student => (
+                                <tr key={student.rollNo}>
+                                  <td style={{ fontWeight: 500 }}>{student.rollNo}</td>
+                                  <td>{student.name}</td>
+                                  <td style={{ color: 'var(--color-text-muted)' }}>{student.email}</td>
+                                  <td style={{ fontWeight: 600 }}>{student.sgpa.toFixed(1)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setSelectedClient(null)}>Close</button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  changeClient(selectedClient, true);
+                  setSelectedClient(null);
+                }}
+              >
+                Edit Portal
+              </button>
             </div>
           </div>
         </div>

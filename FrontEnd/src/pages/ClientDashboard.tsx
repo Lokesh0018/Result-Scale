@@ -50,10 +50,41 @@ function ClientDashboard() {
     setAddOrUpdate(true);
   }
 
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.rollNo.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const [filterSemester, setFilterSemester] = useState<'all' | number>('all');
+  const [filterSgpaRange, setFilterSgpaRange] = useState<'all' | 'excellent' | 'verygood' | 'good' | 'improvement'>('all');
+  const [sortBy, setSortBy] = useState<'rollNo' | 'name' | 'semester' | 'sgpa'>('rollNo');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [tooltipData, setTooltipData] = useState<{ x: number; y: number; title: string; value: string } | null>(null);
+
+  const processedStudents = students
+    .filter(student => {
+      const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.rollNo.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesSemester = filterSemester === 'all' || student.semester === Number(filterSemester);
+      
+      let matchesSgpa = true;
+      if (filterSgpaRange === 'excellent') matchesSgpa = student.sgpa >= 9.0;
+      else if (filterSgpaRange === 'verygood') matchesSgpa = student.sgpa >= 7.5 && student.sgpa < 9.0;
+      else if (filterSgpaRange === 'good') matchesSgpa = student.sgpa >= 6.0 && student.sgpa < 7.5;
+      else if (filterSgpaRange === 'improvement') matchesSgpa = student.sgpa < 6.0;
+
+      return matchesSearch && matchesSemester && matchesSgpa;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'rollNo') {
+        comparison = a.rollNo.localeCompare(b.rollNo);
+      } else if (sortBy === 'name') {
+        comparison = a.name.localeCompare(b.name);
+      } else if (sortBy === 'semester') {
+        comparison = a.semester - b.semester;
+      } else if (sortBy === 'sgpa') {
+        comparison = a.sgpa - b.sgpa;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   const handleNavClick = (section: string) => {
     setActiveSection(section)
@@ -80,7 +111,7 @@ function ClientDashboard() {
   }
 
   useEffect(() => {
-    if (activeSection === "dashboard") {
+    if (activeSection === "dashboard" || activeSection === "students") {
       fetch(`http://localhost:3000/client/dashboard/${clientId}`, {
         method: "GET",
         headers: {
@@ -93,11 +124,12 @@ function ClientDashboard() {
         return data;
       }).then((data) => {
         setStudents(data.data);
+        const totalSemesters = data.data.reduce((acc: number, student: Student) => acc + student.semester, 0);
+        setSemester(totalSemesters);
       }).catch((err) => {
         showToast(err.message, 'error');
       });
     }
-    setSemester(students.reduce((acc,student) => acc + student.semester,0));
   }, [activeSection]);
 
   const validateForm = () => {
@@ -429,40 +461,242 @@ function ClientDashboard() {
                     </div>
                   </div>
                   <div className="stat-card-value">{students.length}</div>
-                  <div className="stat-card-change positive">+{students.length} this semester</div>
+                  <div className="stat-card-change positive">Registered in portal</div>
                 </div>
 
                 <div className="stat-card">
                   <div className="stat-card-header">
-                    <span className="stat-card-title">Results Published</span>
+                    <span className="stat-card-title">Average SGPA</span>
                     <div className="stat-card-icon green">
                       <FileText size={20} />
                     </div>
                   </div>
-                  <div className="stat-card-value">{semester}</div>
-                  <div className="stat-card-change">{(semester/students.length*8)/100}% of total</div>
+                  <div className="stat-card-value">
+                    {students.length > 0 ? (students.reduce((acc, s) => acc + s.sgpa, 0) / students.length).toFixed(2) : '0.00'}
+                  </div>
+                  <div className="stat-card-change">Across all semesters</div>
                 </div>
 
                 <div className="stat-card">
                   <div className="stat-card-header">
-                    <span className="stat-card-title">Results Viewed</span>
+                    <span className="stat-card-title">Passing Rate</span>
                     <div className="stat-card-icon blue">
                       <Eye size={20} />
                     </div>
                   </div>
-                  <div className="stat-card-value">{students.length}</div>
-                  <div className="stat-card-change">{students.length/students.length*100}% view rate</div>
+                  <div className="stat-card-value">
+                    {students.length > 0 ? Math.floor((students.filter(s => s.sgpa >= 5.0).length / students.length) * 100) : 0}%
+                  </div>
+                  <div className="stat-card-change">SGPA &ge; 5.0</div>
                 </div>
 
                 <div className="stat-card">
                   <div className="stat-card-header">
-                    <span className="stat-card-title">OTPs Sent</span>
+                    <span className="stat-card-title">Excellence Rate</span>
                     <div className="stat-card-icon orange">
                       <UserCheck size={20} />
                     </div>
                   </div>
-                  <div className="stat-card-value">{semester}</div>
-                  <div className="stat-card-change">This month</div>
+                  <div className="stat-card-value">
+                    {students.length > 0 ? Math.floor((students.filter(s => s.sgpa >= 9.0).length / students.length) * 100) : 0}%
+                  </div>
+                  <div className="stat-card-change">SGPA &ge; 9.0 (Outstanding)</div>
+                </div>
+              </div>
+
+              {/* Interactive Charts Grid */}
+              <div className="charts-grid">
+                {/* Chart 1: SGPA Distribution */}
+                <div className="chart-card">
+                  <h3 className="chart-card-title">SGPA Distribution</h3>
+                  <div className="chart-container">
+                    {students.length === 0 ? (
+                      <div className="empty-state" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--color-text-muted)' }}>No student records found</div>
+                    ) : (
+                      (() => {
+                        const excellent = students.filter(s => s.sgpa >= 9.0).length;
+                        const veryGood = students.filter(s => s.sgpa >= 7.5 && s.sgpa < 9.0).length;
+                        const good = students.filter(s => s.sgpa >= 6.0 && s.sgpa < 7.5).length;
+                        const improvement = students.filter(s => s.sgpa < 6.0).length;
+
+                        const data = [
+                          { label: 'O (9.0+)', count: excellent, color: '#22c55e' },
+                          { label: 'A (7.5-9.0)', count: veryGood, color: '#3b82f6' },
+                          { label: 'B (6.0-7.5)', count: good, color: '#eab308' },
+                          { label: 'C (<6.0)', count: improvement, color: '#f97316' }
+                        ];
+
+                        const maxCount = Math.max(excellent, veryGood, good, improvement, 4);
+
+                        return (
+                          <svg width="100%" height="100%" viewBox="0 0 300 160" preserveAspectRatio="xMidYMid meet">
+                            {data.map((bar, index) => {
+                              const barHeight = (bar.count / maxCount) * 100;
+                              const xPos = index * 60 + 40;
+                              const yPos = 130 - barHeight;
+
+                              return (
+                                <g key={index}>
+                                  <rect
+                                    x={xPos}
+                                    y={yPos}
+                                    width="30"
+                                    height={barHeight}
+                                    rx="4"
+                                    fill={bar.color}
+                                    className="chart-bar"
+                                    onMouseEnter={(e) => {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      const parentRect = e.currentTarget.parentElement?.parentElement?.getBoundingClientRect();
+                                      if (parentRect) {
+                                        setTooltipData({
+                                          x: rect.left - parentRect.left + 15,
+                                          y: rect.top - parentRect.top,
+                                          title: bar.label,
+                                          value: `${bar.count} Student${bar.count !== 1 ? 's' : ''} (${((bar.count / students.length) * 100).toFixed(0)}%)`
+                                        });
+                                      }
+                                    }}
+                                    onMouseLeave={() => setTooltipData(null)}
+                                  />
+                                  <text
+                                    x={xPos + 15}
+                                    y={yPos - 5}
+                                    textAnchor="middle"
+                                    fontSize="8"
+                                    fontWeight="700"
+                                    fill="var(--color-text)"
+                                  >
+                                    {bar.count}
+                                  </text>
+                                  <text
+                                    x={xPos + 15}
+                                    y="145"
+                                    textAnchor="middle"
+                                    fontSize="8"
+                                    fontWeight="600"
+                                    fill="var(--color-text-muted)"
+                                  >
+                                    {bar.label.split(' ')[0]}
+                                  </text>
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        );
+                      })()
+                    )}
+                    {tooltipData && (
+                      <div
+                        className="chart-tooltip"
+                        style={{
+                          left: `${tooltipData.x}px`,
+                          top: `${tooltipData.y}px`,
+                          opacity: 1
+                        }}
+                      >
+                        <div className="chart-tooltip-title">{tooltipData.title}</div>
+                        <div>{tooltipData.value}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Chart 2: Average SGPA Trend */}
+                <div className="chart-card">
+                  <h3 className="chart-card-title">Average SGPA Trend</h3>
+                  <div className="chart-container">
+                    {students.length === 0 ? (
+                      <div className="empty-state" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--color-text-muted)' }}>No trend data available</div>
+                    ) : (
+                      (() => {
+                        const semesterData = Array.from(new Set(students.map(s => s.semester)))
+                          .sort((a, b) => a - b)
+                          .map(sem => {
+                            const semStudents = students.filter(s => s.semester === sem);
+                            const avg = semStudents.reduce((acc, curr) => acc + curr.sgpa, 0) / semStudents.length;
+                            return { semester: sem, avg };
+                          });
+
+                        const points = semesterData.map((d, i) => {
+                          const x = semesterData.length > 1 ? 50 + (i / (semesterData.length - 1)) * 200 : 150;
+                          const y = 130 - (d.avg / 10) * 90; // Scale 0-10 SGPA to 40-130 height range
+                          return { x, y, semester: d.semester, avg: d.avg };
+                        });
+
+                        let pathD = "";
+                        if (points.length > 0) {
+                          pathD = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(" ");
+                        }
+
+                        return (
+                          <svg width="100%" height="100%" viewBox="0 0 300 160" preserveAspectRatio="xMidYMid meet">
+                            {/* Y Axis Grid lines */}
+                            {[2, 4, 6, 8, 10].map(val => {
+                              const y = 130 - (val / 10) * 90;
+                              return (
+                                <g key={val}>
+                                  <line x1="40" y1={y} x2="260" y2={y} stroke="var(--color-border)" strokeWidth="0.5" strokeDasharray="2 2" />
+                                  <text x="25" y={y + 3} fontSize="8" fill="var(--color-text-muted)" textAnchor="end">{val}.0</text>
+                                </g>
+                              );
+                            })}
+                            {/* Connection path */}
+                            {pathD && (
+                              <path
+                                d={pathD}
+                                fill="none"
+                                stroke="#3b82f6"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            )}
+                            {/* Interactive Data points */}
+                            {points.map((p, i) => (
+                              <circle
+                                key={i}
+                                cx={p.x}
+                                cy={p.y}
+                                r="5"
+                                fill="#ffffff"
+                                stroke="#3b82f6"
+                                strokeWidth="2.5"
+                                className="chart-dot"
+                                onMouseEnter={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const parentRect = e.currentTarget.parentElement?.parentElement?.getBoundingClientRect();
+                                  if (parentRect) {
+                                    setTooltipData({
+                                      x: rect.left - parentRect.left + 5,
+                                      y: rect.top - parentRect.top,
+                                      title: `Semester ${p.semester}`,
+                                      value: `Average SGPA: ${p.avg.toFixed(2)}`
+                                    });
+                                  }
+                                }}
+                                onMouseLeave={() => setTooltipData(null)}
+                              />
+                            ))}
+                            {/* X Axis Labels */}
+                            {points.map((p, i) => (
+                              <text
+                                key={i}
+                                x={p.x}
+                                y="145"
+                                textAnchor="middle"
+                                fontSize="8"
+                                fontWeight="600"
+                                fill="var(--color-text-muted)"
+                              >
+                                Sem {p.semester}
+                              </text>
+                            ))}
+                          </svg>
+                        );
+                      })()
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -485,12 +719,12 @@ function ClientDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredStudents.slice(-3).map((student) => (
-                      <tr key={student._id}>
+                    {processedStudents.slice(-3).map((student) => (
+                      <tr key={student._id} className="clickable-row" onClick={() => setSelectedStudent(student)}>
                         <td style={{ fontWeight: 500 }}>{student.rollNo}</td>
                         <td>{student.name}</td>
                         <td>{student.semester}</td>
-                        <td>{student.sgpa}</td>
+                        <td>{student.sgpa.toFixed(1)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -595,21 +829,79 @@ function ClientDashboard() {
           {/* Students Section */}
           {activeSection === 'students' && (
             <div className="table-section">
-              <div className="table-header">
+              <div className="table-header" style={{ borderBottom: 'none' }}>
                 <h2 className="table-title">Student Records</h2>
                 <div className="table-actions">
-                  <input
-                    type="text"
-                    className="search-input"
-                    placeholder="Search students..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
                   <button className="btn btn-primary" onClick={() => updateShowModal()}>
                     <Plus size={16} />
                     Add Student
                   </button>
                 </div>
+              </div>
+
+              {/* Filters Toolbar */}
+              <div className="filter-toolbar">
+                <div className="filter-group">
+                  <span className="filter-label">Search</span>
+                  <input
+                    type="text"
+                    className="search-input"
+                    placeholder="Search name or roll no..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{ margin: 0 }}
+                  />
+                </div>
+
+                <div className="filter-group">
+                  <span className="filter-label">Semester</span>
+                  <select
+                    className="filter-select"
+                    value={filterSemester}
+                    onChange={(e) => setFilterSemester(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                  >
+                    <option value="all">All Semesters</option>
+                    {Array.from(new Set(students.map(s => s.semester))).sort((a,b)=>a-b).map(sem => (
+                      <option key={sem} value={sem}>Semester {sem}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <span className="filter-label">SGPA Bracket</span>
+                  <select
+                    className="filter-select"
+                    value={filterSgpaRange}
+                    onChange={(e) => setFilterSgpaRange(e.target.value as any)}
+                  >
+                    <option value="all">All Grades</option>
+                    <option value="excellent">Excellent (&ge; 9.0)</option>
+                    <option value="verygood">Very Good (7.5 - 9.0)</option>
+                    <option value="good">Good (6.0 - 7.5)</option>
+                    <option value="improvement">Needs Improvement (&lt; 6.0)</option>
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <span className="filter-label">Sort By</span>
+                  <select
+                    className="filter-select"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                  >
+                    <option value="rollNo">Roll Number</option>
+                    <option value="name">Name</option>
+                    <option value="semester">Semester</option>
+                    <option value="sgpa">SGPA</option>
+                  </select>
+                </div>
+
+                <button
+                  className="sort-btn"
+                  onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                >
+                  Order: {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                </button>
               </div>
 
               <table className="data-table">
@@ -624,8 +916,16 @@ function ClientDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredStudents.map((student) => (
-                    <tr key={student._id}>
+                  {processedStudents.map((student) => (
+                    <tr
+                      key={student._id}
+                      className="clickable-row"
+                      onClick={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.closest('.action-btn')) return;
+                        setSelectedStudent(student);
+                      }}
+                    >
                       <td style={{ fontWeight: 500 }}>{student.rollNo}</td>
                       <td>{student.name}</td>
                       <td style={{ color: 'var(--color-text-muted)' }}>{student.email}</td>
@@ -833,6 +1133,92 @@ function ClientDashboard() {
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setDeleteModal(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={(e) => deleteStudent(e)}>Delete Student</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedStudent && (
+        <div className="modal-overlay" onClick={() => setSelectedStudent(null)}>
+          <div className="modal" style={{ maxWidth: '550px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Student Drill-down: {selectedStudent.name}</h3>
+              <button className="modal-close" onClick={() => setSelectedStudent(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {(() => {
+                const percentage = (selectedStudent.sgpa * 9.5).toFixed(1);
+                let standing = "Needs Improvement";
+                let colorClass = "orange";
+                if (selectedStudent.sgpa >= 9.0) {
+                  standing = "Outstanding (O)";
+                  colorClass = "green";
+                } else if (selectedStudent.sgpa >= 7.5) {
+                  standing = "Very Good (A)";
+                  colorClass = "blue";
+                } else if (selectedStudent.sgpa >= 6.0) {
+                  standing = "Good (B)";
+                  colorClass = "primary";
+                }
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+                    <div className="detail-grid" style={{ marginTop: 0 }}>
+                      <div className="detail-card">
+                        <div className="detail-label">Roll Number</div>
+                        <div className="detail-value">{selectedStudent.rollNo}</div>
+                      </div>
+                      <div className="detail-card">
+                        <div className="detail-label">Email Address</div>
+                        <div className="detail-value" style={{ fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedStudent.email}</div>
+                      </div>
+                      <div className="detail-card">
+                        <div className="detail-label">Semester</div>
+                        <div className="detail-value">Semester {selectedStudent.semester}</div>
+                      </div>
+                      <div className="detail-card">
+                        <div className="detail-label">SGPA</div>
+                        <div className="detail-value">{selectedStudent.sgpa.toFixed(2)}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600 }}>
+                        <span style={{ color: 'var(--color-text-muted)' }}>Academic Standing:</span>
+                        <span style={{ color: `var(--color-${colorClass})` }}>{standing}</span>
+                      </div>
+                      <div className="progress-container">
+                        <div className={`progress-bar ${colorClass}`} style={{ width: `${selectedStudent.sgpa * 10}%` }}></div>
+                      </div>
+                    </div>
+
+                    <div className="detail-card" style={{ backgroundColor: 'var(--color-background)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--spacing-xs)', fontSize: '13px' }}>
+                        <span>Percentage Equivalent:</span>
+                        <strong>{percentage}%</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                        <span>Status:</span>
+                        <span className="badge badge-success" style={{ display: 'inline-block' }}>Passed</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setSelectedStudent(null)}>Close</button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  changeStudent(selectedStudent, true);
+                  setSelectedStudent(null);
+                }}
+              >
+                Edit Student Result
+              </button>
             </div>
           </div>
         </div>
