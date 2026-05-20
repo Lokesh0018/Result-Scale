@@ -69,6 +69,13 @@ function AdminDashboard() {
   const [filterLogStatus, setFilterLogStatus] = useState<'all' | 'success' | 'failure'>('all');
   const [logSortOrder, setLogSortOrder] = useState<'asc' | 'desc'>('desc');
 
+  const [adminEmail, setAdminEmail] = useState(localStorage.getItem("userEmail") || "admin@resultscale.com");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [smtpServer, setSmtpServer] = useState(localStorage.getItem("settings_smtpServer") || "smtp.resultscale.com");
+  const [senderEmail, setSenderEmail] = useState(localStorage.getItem("settings_senderEmail") || "noreply@resultscale.com");
+  const [otpExpiry, setOtpExpiry] = useState(localStorage.getItem("settings_otpExpiry") || "5 minutes");
+  const [defaultPortalDuration, setDefaultPortalDuration] = useState(localStorage.getItem("settings_defaultPortalDuration") || "1 year");
+
   const updateClientLists = (allClients: Client[]) => {
     const active: Client[] = [];
     let expiredCount = 0;
@@ -374,6 +381,44 @@ function AdminDashboard() {
     setDeleteModal(false);
   }
 
+  const handleSaveSettings = () => {
+    if (!adminEmail.trim()) {
+      showToast("Admin email is required", "error");
+      return;
+    }
+    
+    // Save standard settings to localStorage
+    localStorage.setItem("settings_smtpServer", smtpServer);
+    localStorage.setItem("settings_senderEmail", senderEmail);
+    localStorage.setItem("settings_otpExpiry", otpExpiry);
+    localStorage.setItem("settings_defaultPortalDuration", defaultPortalDuration);
+    localStorage.setItem("userEmail", adminEmail);
+
+    if (adminPassword) {
+      fetch(`http://localhost:3000/admin/password/${adminEmail}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Email": localStorage.getItem("userEmail") || adminEmail,
+          "X-User-Role": "admin"
+        },
+        body: JSON.stringify({ password: adminPassword }),
+      }).then(async (res) => {
+        const data = await res.json();
+        if (!res.ok)
+          throw new Error(data.message || "Failed to change password");
+        return data;
+      }).then(() => {
+        showToast("Settings and password updated successfully!", "success");
+        setAdminPassword("");
+      }).catch((err) => {
+        showToast(err.message, "error");
+      });
+    } else {
+      showToast("Settings saved successfully!", "success");
+    }
+  };
+
 
   return (
     <div className="dashboard-layout">
@@ -431,9 +476,11 @@ function AdminDashboard() {
 
         <div className="sidebar-footer">
           <div className="user-info">
-            <div className="user-avatar">A</div>
+            <div className="user-avatar">{adminEmail.charAt(0).toUpperCase()}</div>
             <div className="user-details">
-              <div className="user-name">Admin User</div>
+              <div className="user-name" title={adminEmail} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                {adminEmail}
+              </div>
               <div className="user-role">Super Admin</div>
             </div>
             <button onClick={() => navigate('/')} className="action-btn">
@@ -1016,16 +1063,27 @@ function AdminDashboard() {
                       <span>Primary contact for system notifications</span>
                     </div>
                     <div className="settings-value">
-                      <input type="email" className="form-input" defaultValue="admin@resultscale.com" />
+                      <input
+                        type="email"
+                        className="form-input"
+                        value={adminEmail}
+                        onChange={(e) => setAdminEmail(e.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="settings-row">
                     <div className="settings-label">
                       <strong>Password</strong>
-                      <span>Update your account password</span>
+                      <span>Update your account password (leave blank to keep current)</span>
                     </div>
                     <div className="settings-value">
-                      <button className="btn btn-outline">Change Password</button>
+                      <input
+                        type="password"
+                        className="form-input"
+                        placeholder="Enter new password"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                      />
                     </div>
                   </div>
                 </div>
@@ -1043,7 +1101,12 @@ function AdminDashboard() {
                       <span>Email server for OTP delivery</span>
                     </div>
                     <div className="settings-value">
-                      <input type="text" className="form-input" defaultValue="smtp.resultscale.com" />
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={smtpServer}
+                        onChange={(e) => setSmtpServer(e.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="settings-row">
@@ -1052,7 +1115,12 @@ function AdminDashboard() {
                       <span>From address for outgoing emails</span>
                     </div>
                     <div className="settings-value">
-                      <input type="email" className="form-input" defaultValue="noreply@resultscale.com" />
+                      <input
+                        type="email"
+                        className="form-input"
+                        value={senderEmail}
+                        onChange={(e) => setSenderEmail(e.target.value)}
+                      />
                     </div>
                   </div>
                 </div>
@@ -1070,11 +1138,15 @@ function AdminDashboard() {
                       <span>How long OTP codes remain valid</span>
                     </div>
                     <div className="settings-value">
-                      <select className="form-input">
-                        <option>5 minutes</option>
-                        <option>10 minutes</option>
-                        <option>15 minutes</option>
-                        <option>30 minutes</option>
+                      <select
+                        className="form-input"
+                        value={otpExpiry}
+                        onChange={(e) => setOtpExpiry(e.target.value)}
+                      >
+                        <option value="5 minutes">5 minutes</option>
+                        <option value="10 minutes">10 minutes</option>
+                        <option value="15 minutes">15 minutes</option>
+                        <option value="30 minutes">30 minutes</option>
                       </select>
                     </div>
                   </div>
@@ -1084,10 +1156,14 @@ function AdminDashboard() {
                       <span>Default client portal access period</span>
                     </div>
                     <div className="settings-value">
-                      <select className="form-input">
-                        <option>3 months</option>
-                        <option>6 months</option>
-                        <option>1 year</option>
+                      <select
+                        className="form-input"
+                        value={defaultPortalDuration}
+                        onChange={(e) => setDefaultPortalDuration(e.target.value)}
+                      >
+                        <option value="3 months">3 months</option>
+                        <option value="6 months">6 months</option>
+                        <option value="1 year">1 year</option>
                       </select>
                     </div>
                   </div>
@@ -1113,7 +1189,7 @@ function AdminDashboard() {
               </div>
 
               <div style={{ marginTop: 'var(--spacing-xl)' }}>
-                <button className="btn btn-primary">Save Changes</button>
+                <button className="btn btn-primary" onClick={handleSaveSettings}>Save Changes</button>
               </div>
             </div>
           )}

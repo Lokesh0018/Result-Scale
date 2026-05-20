@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express"
-import { GetDashboard, AddStudent, UpdateStudent, DeleteStudent, GetStudents, UpdatePassword } from "../service/clientService"
+import { GetDashboard, AddStudent, UpdateStudent, DeleteStudent, GetStudents, UpdatePassword, UpdateProfile } from "../service/clientService"
 import { LogActivity } from "../service/logService"
 import Client from "../models/Client"
 
@@ -176,6 +176,35 @@ export const updatePassword = async (req: Request, res: Response) => {
         return res.status(500).json({
             success: false,
             message: err.message,
+        });
+    }
+}
+
+export const updateProfile = async (req: Request, res: Response) => {
+    const clientId = req.params.clientId as string;
+    const { institutionName, email, password } = req.body;
+    const actorEmail = req.headers["x-user-email"] as string || email || "unknown_client";
+    const actorRole = req.headers["x-user-role"] as string || "client";
+    try {
+        if (!clientId || !institutionName || !email) {
+            return res.status(400).json({
+                success: false,
+                message: "Client id, institution name, and email are required !",
+            });
+        }
+        const client = await UpdateProfile(clientId, institutionName, email, password);
+        await LogActivity(actorEmail, actorRole, "Profile Updated", "client", `Client profile updated: ${institutionName} (${email})`, "success");
+        return res.status(200).json({
+            success: true,
+            message: "Profile Updated Successfully",
+            client
+        });
+    }
+    catch (err: any) {
+        await LogActivity(actorEmail, actorRole, "Profile Update Failed", "client", `Failed to update client profile: ${err.message}`, "failure");
+        return res.status(500).json({
+            success: false,
+            message: err.message
         });
     }
 }

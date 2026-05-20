@@ -3,9 +3,14 @@ import Client from "../models/Client";
 import Student from "../models/Student";
 
 export const GetDashboard = async (clientId: string) => {
-  return await Student.find({
+  const students = await Student.find({
     clientId: new mongoose.Types.ObjectId(clientId)
   }).lean();
+  const client = await Client.findById(clientId).lean();
+  return {
+    students,
+    client
+  };
 };
 
 export const AddStudent = async (clientId: string, name: string, email: string, rollNo: string, semester: number, sgpa: number) => {
@@ -76,6 +81,30 @@ export const UpdatePassword = async (email: string, password: string) => {
         throw new Error("Client not found !");
     client.password = password;
     await client.save();
+    const { password: _password, ...clientDto } = client.toObject();
+    return clientDto;
+}
+
+export const UpdateProfile = async (clientId: string, institutionName: string, email: string, password?: string) => {
+    const client = await Client.findById(clientId);
+    if (!client)
+        throw new Error("Client not found !");
+    
+    if (client.email !== email) {
+        const existingClient = await Client.findOne({ email });
+        if (existingClient)
+            throw new Error(`Already Exists with Email ${email}`);
+    }
+
+    client.institutionName = institutionName;
+    client.email = email;
+    if (password) {
+        client.password = password;
+    }
+    await client.save();
+    
+    await Student.updateMany({ clientId }, { institutionName });
+
     const { password: _password, ...clientDto } = client.toObject();
     return clientDto;
 }

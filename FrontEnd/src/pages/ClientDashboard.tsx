@@ -26,6 +26,10 @@ function ClientDashboard() {
   const [addOrUpdate, setAddOrUpdate] = useState(true);
   const [deleteModal, setDeleteModal] = useState(false);
   const [semester,setSemester] = useState(0);
+  const [clientName, setClientName] = useState(localStorage.getItem("institutionName") || "ABC University");
+  const [clientEmail, setClientEmail] = useState(localStorage.getItem("userEmail") || "admin@abcuniversity.edu");
+  const [clientExpiry, setClientExpiry] = useState("2025-06-30");
+  const [clientPassword, setClientPassword] = useState("");
   const [isUploadingCsv, setIsUploadingCsv] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [formData, setFormData] = useState({
@@ -111,7 +115,7 @@ function ClientDashboard() {
   }
 
   useEffect(() => {
-    if (activeSection === "dashboard" || activeSection === "students") {
+    if (activeSection === "dashboard" || activeSection === "students" || activeSection === "settings") {
       fetch(`http://localhost:3000/client/dashboard/${clientId}`, {
         method: "GET",
         headers: {
@@ -123,8 +127,16 @@ function ClientDashboard() {
           throw new Error(data.message);
         return data;
       }).then((data) => {
-        setStudents(data.data);
-        const totalSemesters = data.data.reduce((acc: number, student: Student) => acc + student.semester, 0);
+        const studentsList = data.data.students || [];
+        const clientInfo = data.data.client;
+        setStudents(studentsList);
+        if (clientInfo) {
+          setClientName(clientInfo.institutionName);
+          setClientEmail(clientInfo.email);
+          setClientExpiry(clientInfo.portalExpiryDate ? clientInfo.portalExpiryDate.split("T")[0] : "");
+          localStorage.setItem("institutionName", clientInfo.institutionName);
+        }
+        const totalSemesters = studentsList.reduce((acc: number, student: Student) => acc + student.semester, 0);
         setSemester(totalSemesters);
       }).catch((err) => {
         showToast(err.message, 'error');
@@ -382,6 +394,45 @@ function ClientDashboard() {
     }
   };
 
+  const handleSaveSettings = () => {
+    if (!clientName.trim() || !clientEmail.trim()) {
+      showToast("Institution name and contact email are required", "error");
+      return;
+    }
+    const payload: any = {
+      institutionName: clientName,
+      email: clientEmail,
+    };
+    if (clientPassword) {
+      payload.password = clientPassword;
+    }
+    fetch(`http://localhost:3000/client/profile/${clientId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Email": localStorage.getItem("userEmail") || clientEmail,
+        "X-User-Role": localStorage.getItem("userRole") || "client"
+      },
+      body: JSON.stringify(payload),
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to update profile");
+      return data;
+    }).then((data) => {
+      showToast("Profile settings updated successfully!", "success");
+      setClientPassword("");
+      if (data.client) {
+        setClientName(data.client.institutionName);
+        setClientEmail(data.client.email);
+        localStorage.setItem("userEmail", data.client.email);
+        localStorage.setItem("institutionName", data.client.institutionName);
+      }
+    }).catch((err) => {
+      showToast(err.message, "error");
+    });
+  };
+
 
   return (
     <div className="dashboard-layout">
@@ -436,9 +487,11 @@ function ClientDashboard() {
 
         <div className="sidebar-footer">
           <div className="user-info">
-            <div className="user-avatar">A</div>
+            <div className="user-avatar">{clientName.charAt(0).toUpperCase()}</div>
             <div className="user-details">
-              <div className="user-name">ABC University</div>
+              <div className="user-name" title={clientName} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                {clientName}
+              </div>
               <div className="user-role">Institution</div>
             </div>
             <button onClick={() => navigate('/')} className="action-btn">
@@ -985,7 +1038,12 @@ function ClientDashboard() {
                       <span>Your organization name</span>
                     </div>
                     <div className="settings-value">
-                      <input type="text" className="form-input" defaultValue="ABC University" />
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={clientName}
+                        onChange={(e) => setClientName(e.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="settings-row">
@@ -994,7 +1052,12 @@ function ClientDashboard() {
                       <span>Primary contact for notifications</span>
                     </div>
                     <div className="settings-value">
-                      <input type="email" className="form-input" defaultValue="admin@abcuniversity.edu" />
+                      <input
+                        type="email"
+                        className="form-input"
+                        value={clientEmail}
+                        onChange={(e) => setClientEmail(e.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="settings-row">
@@ -1003,7 +1066,12 @@ function ClientDashboard() {
                       <span>Your student result portal link</span>
                     </div>
                     <div className="settings-value">
-                      <input type="text" className="form-input" defaultValue="results.abcuniversity.edu" readOnly />
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={`${clientName.toLowerCase().replace(/\s+/g, '')}.resultscale.com`}
+                        readOnly
+                      />
                     </div>
                   </div>
                 </div>
@@ -1018,10 +1086,16 @@ function ClientDashboard() {
                   <div className="settings-row">
                     <div className="settings-label">
                       <strong>Password</strong>
-                      <span>Update your account password</span>
+                      <span>Update your account password (leave blank to keep current)</span>
                     </div>
                     <div className="settings-value">
-                      <button className="btn btn-outline">Change Password</button>
+                      <input
+                        type="password"
+                        className="form-input"
+                        placeholder="Enter new password"
+                        value={clientPassword}
+                        onChange={(e) => setClientPassword(e.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="settings-row">
@@ -1030,7 +1104,7 @@ function ClientDashboard() {
                       <span>Add extra security to your account</span>
                     </div>
                     <div className="settings-value">
-                      <button className="btn btn-outline">Enable 2FA</button>
+                      <button className="btn btn-outline" disabled>Enable 2FA (Disabled)</button>
                     </div>
                   </div>
                 </div>
@@ -1078,7 +1152,9 @@ function ClientDashboard() {
                       <span>Your portal access expires on</span>
                     </div>
                     <div className="settings-value">
-                      <span style={{ fontWeight: 500 }}>June 30, 2025</span>
+                      <span style={{ fontWeight: 500 }}>
+                        {clientExpiry ? new Date(clientExpiry).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'June 30, 2025'}
+                      </span>
                     </div>
                   </div>
                   <div className="settings-row">
@@ -1087,14 +1163,16 @@ function ClientDashboard() {
                       <span>Current portal access status</span>
                     </div>
                     <div className="settings-value">
-                      <span className="badge badge-success">Active</span>
+                      <span className={`badge ${clientExpiry && new Date(clientExpiry).getTime() > Date.now() ? 'badge-success' : 'badge-error'}`}>
+                        {clientExpiry && new Date(clientExpiry).getTime() > Date.now() ? 'Active' : 'Expired'}
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div style={{ marginTop: 'var(--spacing-xl)' }}>
-                <button className="btn btn-primary">Save Changes</button>
+                <button className="btn btn-primary" onClick={handleSaveSettings}>Save Changes</button>
               </div>
             </div>
           )}
