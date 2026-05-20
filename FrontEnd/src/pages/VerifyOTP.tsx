@@ -9,6 +9,7 @@ function VerifyOTP() {
   const location = useLocation();
   const { showToast } = useToast();
   const email = location.state?.email;
+  const studentId = location.state?.studentId;
   const navigate = useNavigate()
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const [timer, setTimer] = useState(300)
@@ -56,6 +57,7 @@ function VerifyOTP() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        studentId: studentId,
         email: email,
         otp: otpValue
       })
@@ -77,9 +79,27 @@ function VerifyOTP() {
   }
 
   const handleResend = () => {
-    setTimer(60)
-    setCanResend(false)
-    setOtp(['', '', '', '', '', ''])
+    if (!studentId && !email) {
+      showToast('Session expired. Please login again.', 'error')
+      navigate('/student/login')
+      return
+    }
+    fetch("http://localhost:3000/student/resend-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId })
+    }).then(async (res) => {
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message)
+      return data
+    }).then(() => {
+      showToast('New OTP sent to your email!', 'success')
+      setTimer(300)
+      setCanResend(false)
+      setOtp(['', '', '', '', '', ''])
+    }).catch((err) => {
+      showToast(err.message, 'error')
+    })
   }
 
   const formatTime = (seconds: number) => {

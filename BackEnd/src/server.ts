@@ -4,6 +4,8 @@ dotenv.config();
 import cors from "cors";
 import { createServer } from "http";
 import { Server } from "socket.io";
+import fs from "fs";
+import path from "path";
 import connectDB from "./config/db";
 import { router as adminRoutes } from "./routes/adminRoutes";
 import { router as clientRoutes } from "./routes/clientRoutes";
@@ -15,6 +17,13 @@ import { AnalyticsService } from "./service/analyticsService";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('Created uploads directory:', uploadsDir);
+}
 
 // Socket.IO setup
 const io = new Server(httpServer, {
@@ -74,4 +83,5 @@ io.on('connection', (socket) => {
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Socket.IO enabled for real-time updates`);
+  console.log(`Uploads directory: ${uploadsDir}`);
 });

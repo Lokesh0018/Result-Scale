@@ -3,13 +3,29 @@ import Student from '../models/Student'
 import mongoose from 'mongoose'
 
 export class OTPService {
-  private static transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD
+  private static transporter: nodemailer.Transporter | null = null
+
+  /**
+   * Initialize email transporter
+   */
+  private static getTransporter(): nodemailer.Transporter {
+    if (!this.transporter) {
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+        throw new Error('Email configuration missing. Please set EMAIL_USER and EMAIL_PASSWORD in .env file')
+      }
+
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD
+        }
+      })
+
+      console.log('Email transporter initialized with:', process.env.EMAIL_USER)
     }
-  })
+    return this.transporter
+  }
 
   /**
    * Generate 6-digit OTP
@@ -23,8 +39,15 @@ export class OTPService {
    */
   static async sendOTP(email: string, otp: string, studentName: string): Promise<boolean> {
     try {
+      console.log('=== Sending OTP Email ===')
+      console.log('To:', email)
+      console.log('OTP:', otp)
+      console.log('Student:', studentName)
+
+      const transporter = this.getTransporter()
+
       const mailOptions = {
-        from: process.env.EMAIL_USER,
+        from: `"ResultScale" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: 'Your ResultScale OTP - Verify Your Identity',
         html: `
@@ -71,13 +94,18 @@ export class OTPService {
             </div>
           </body>
           </html>
-        `
+        `,
+        text: `Hello ${studentName},\n\nYour ResultScale OTP is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nNever share this OTP with anyone.\n\nIf you didn't request this, please ignore this email.\n\n© ${new Date().getFullYear()} ResultScale`
       }
 
-      await this.transporter.sendMail(mailOptions)
+      const info = await transporter.sendMail(mailOptions)
+      console.log('Email sent successfully:', info.messageId)
+      console.log('Response:', info.response)
       return true
-    } catch (error) {
-      console.error('Failed to send OTP email:', error)
+    } catch (error: any) {
+      console.error('=== Failed to send OTP email ===')
+      console.error('Error:', error.message)
+      console.error('Stack:', error.stack)
       return false
     }
   }

@@ -26,6 +26,8 @@ function ClientDashboard() {
   const [addOrUpdate, setAddOrUpdate] = useState(true);
   const [deleteModal, setDeleteModal] = useState(false);
   const [semester,setSemester] = useState(0);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     clientId: clientId,
     rollNo: "",
@@ -217,6 +219,71 @@ function ClientDashboard() {
     });
     setDeleteModal(false);
     setSemester(students.reduce((acc,student) => acc + student.semester,0));
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.name.endsWith('.csv')) {
+        showToast('Please select a CSV file', 'error');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        showToast('File size must be less than 10MB', 'error');
+        return;
+      }
+      setCsvFile(file);
+      showToast(`File "${file.name}" selected`, 'success');
+    }
+  }
+
+  const handleCsvUpload = async () => {
+    if (!csvFile) {
+      showToast('Please select a CSV file first', 'error');
+      return;
+    }
+
+    if (!clientId) {
+      showToast('Client ID not found. Please login again.', 'error');
+      return;
+    }
+
+    setUploading(true);
+
+    const formData = new FormData();
+    formData.append('csvFile', csvFile);
+    formData.append('clientId', clientId);
+
+    try {
+      const response = await fetch('http://localhost:3000/client/upload-csv', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'CSV upload failed');
+      }
+
+      showToast(`Successfully uploaded ${data.stats.savedStudents} students!`, 'success');
+      setCsvFile(null);
+      
+      // Refresh student list
+      setActiveSection('dashboard');
+      setTimeout(() => setActiveSection('upload'), 100);
+      
+      // Fetch updated students
+      const studentsRes = await fetch(`http://localhost:3000/client/dashboard/${clientId}`);
+      const studentsData = await studentsRes.json();
+      if (studentsRes.ok) {
+        setStudents(studentsData.data);
+      }
+    } catch (error: any) {
+      showToast(error.message || 'Failed to upload CSV', 'error');
+    } finally {
+      setUploading(false);
+    }
   }
 
 
@@ -418,21 +485,59 @@ function ClientDashboard() {
                     </div>
                     <h3 className="upload-title">Upload CSV File</h3>
                     <p className="upload-description">
-                      Drag and drop your CSV file here, or click to browse.
+                      {csvFile ? `Selected: ${csvFile.name}` : 'Select your CSV file with student results'}
                       <br />
                       Supported format: .csv (max 10MB)
                     </p>
-                    <button className="btn btn-primary" style={{ marginTop: 'var(--spacing-lg)' }}>
-                      Select File
-                    </button>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={handleFileChange}
+                      style={{ display: 'none' }}
+                      id="csv-file-input"
+                    />
+                    <label htmlFor="csv-file-input">
+                      <button 
+                        className="btn btn-outline" 
+                        style={{ marginTop: 'var(--spacing-lg)', marginRight: 'var(--spacing-sm)' }}
+                        onClick={() => document.getElementById('csv-file-input')?.click()}
+                        type="button"
+                      >
+                        Select File
+                      </button>
+                    </label>
+                    {csvFile && (
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ marginTop: 'var(--spacing-lg)' }}
+                        onClick={handleCsvUpload}
+                        disabled={uploading}
+                      >
+                        {uploading ? 'Uploading...' : 'Upload CSV'}
+                      </button>
+                    )}
 
                     <div className="upload-info">
                       <h4>CSV Format Requirements:</h4>
                       <ul>
-                        <li>Headers: roll_no, name, email, semester, sgpa, cgpa</li>
+                        <li>Headers: rollno, student_name, email_address, semester, cgpa</li>
                         <li>All fields are required</li>
-                        <li>SGPA and CGPA should be numeric (0-10 scale)</li>
+                        <li>No duplicate roll numbers or emails</li>
+                        <li>Semester must be between 1-8</li>
+                        <li>cgpa must be between 0-10</li>
                       </ul>
+                      <h4 style={{ marginTop: 'var(--spacing-md)' }}>Example:</h4>
+                      <pre style={{ 
+                        background: 'var(--color-bg-secondary)', 
+                        padding: 'var(--spacing-sm)', 
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: '12px',
+                        overflow: 'auto'
+                      }}>
+rollno,student_name,email_address,semester,cgpa
+22kd1a0501,Varshith D,22kd1a0501@lendi.edu.in,6,9.32
+22kd1a0502,John Doe,john@example.com,6,8.5
+                      </pre>
                     </div>
                   </div>
                 )}

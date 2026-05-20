@@ -7,25 +7,29 @@ function StudentResult() {
   const location = useLocation()
   const student = location.state?.student
 
-  const mockResult = {
-    student: student || { name: 'N/A', rollNo: 'N/A', program: 'B.Tech', semester: 'N/A' },
-    subjects: [
-      { code: 'CS401', name: 'Data Structures', credits: 4, grade: 'A', points: 9 },
-      { code: 'CS402', name: 'Database Systems', credits: 4, grade: 'A+', points: 10 },
-      { code: 'CS403', name: 'Operating Systems', credits: 3, grade: 'B+', points: 8 },
-      { code: 'CS404', name: 'Computer Networks', credits: 3, grade: 'A', points: 9 },
-      { code: 'CS405', name: 'Software Engineering', credits: 3, grade: 'B', points: 7 },
-      { code: 'CS406', name: 'Mathematics IV', credits: 3, grade: 'A', points: 9 },
-    ],
-    sgpa: 8.65,
-    cgpa: 8.42,
-    totalCredits: 20,
-  }
-
-  const getGradeClass = (grade: string) => {
-    if (grade.startsWith('A')) return 'grade-a'
-    if (grade.startsWith('B')) return 'grade-b'
-    return 'grade-c'
+  if (!student) {
+    return (
+      <div className="student-page">
+        <div className="result-card">
+          <div className="result-header">
+            <div className="result-header-logo">
+              <div className="result-header-logo-icon">
+                <BarChart3 size={18} />
+              </div>
+              ResultScale
+            </div>
+            <h1 className="result-header-title">No Result Found</h1>
+            <p className="result-header-subtitle">Please login to view your result</p>
+          </div>
+          <div className="result-footer">
+            <Link to="/student/login" className="btn btn-primary">
+              <Home size={16} />
+              Go to Login
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const handlePrint = () => {
@@ -50,61 +54,43 @@ function StudentResult() {
           <div className="result-student-info">
             <div className="result-info-item">
               <span className="result-info-label">Student Name</span>
-              <span className="result-info-value">{mockResult.student.name}</span>
+              <span className="result-info-value">{student.name}</span>
             </div>
             <div className="result-info-item">
               <span className="result-info-label">Roll Number</span>
-              <span className="result-info-value">{mockResult.student.rollNo}</span>
-            </div>
-            <div className="result-info-item">
-              <span className="result-info-label">Program</span>
-              <span className="result-info-value">B.Tech</span>
+              <span className="result-info-value">{student.rollNo}</span>
             </div>
             <div className="result-info-item">
               <span className="result-info-label">Semester</span>
-              <span className="result-info-value">{mockResult.student.semester}</span>
+              <span className="result-info-value">{student.semester}</span>
+            </div>
+            {student.institutionName && (
+              <div className="result-info-item">
+                <span className="result-info-label">Institution</span>
+                <span className="result-info-value">{student.institutionName}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="result-summary" style={{ marginTop: 'var(--spacing-xl)' }}>
+            <div className="result-summary-item">
+              <div className="result-summary-value">{student.sgpa ? student.sgpa.toFixed(2) : 'N/A'}</div>
+              <div className="result-summary-label">SCGPA</div>
             </div>
           </div>
 
-          <h3 className="result-grades-title">Subject-wise Grades</h3>
-          <table className="result-grades-table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Subject</th>
-                <th>Credits</th>
-                <th>Grade</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mockResult.subjects.map((subject) => (
-                <tr key={subject.code}>
-                  <td style={{ fontWeight: 500, fontFamily: 'monospace' }}>{subject.code}</td>
-                  <td>{subject.name}</td>
-                  <td>{subject.credits}</td>
-                  <td>
-                    <span className={`grade-badge ${getGradeClass(subject.grade)}`}>
-                      {subject.grade}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="result-summary">
-            <div className="result-summary-item">
-              <div className="result-summary-value">{mockResult.sgpa.toFixed(2)}</div>
-              <div className="result-summary-label">SGPA</div>
-            </div>
-            <div className="result-summary-item">
-              <div className="result-summary-value">{mockResult.cgpa.toFixed(2)}</div>
-              <div className="result-summary-label">CGPA</div>
-            </div>
-            <div className="result-summary-item">
-              <div className="result-summary-value">{mockResult.totalCredits}</div>
-              <div className="result-summary-label">Total Credits</div>
-            </div>
+          <div style={{ 
+            marginTop: 'var(--spacing-xl)', 
+            padding: 'var(--spacing-md)', 
+            background: 'var(--color-bg-secondary)', 
+            borderRadius: 'var(--radius-md)',
+            textAlign: 'center'
+          }}>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
+              This result is generated from the uploaded CSV data by your institution.
+              <br />
+              For detailed subject-wise grades, please contact your institution.
+            </p>
           </div>
         </div>
 

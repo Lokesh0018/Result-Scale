@@ -1,4 +1,4 @@
-rollno,student_name,email_address,semester,scgpa
+rollno,student_name,email_address,semester,cgpa
 21A91A0501,John Doe,john.doe@example.com,6,8.5
 21A91A0502,Jane Smith,jane.smith@example.com,6,9.2
 21A91A0503,Bob Johnson,bob.johnson@example.com,6,7.8

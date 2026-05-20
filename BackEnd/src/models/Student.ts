@@ -7,7 +7,7 @@ const studentSchema = new Schema<IStudent>({
         type: Schema.Types.ObjectId,
         ref: Client,
         required: true,
-        index:true,
+        index: true,
     },
 
     name: {
@@ -18,12 +18,11 @@ const studentSchema = new Schema<IStudent>({
     email: {
         type: String,
         required: true,
-        unique:true,
     },
 
     rollNo: {
         type: String,
-        required:true,
+        required: true,
     },
 
     institutionName: {
@@ -37,17 +36,22 @@ const studentSchema = new Schema<IStudent>({
     },
 
     sgpa: {
-        type:Number,
-        required:true,
+        type: Number,
+        required: true,
     },
 
-    otp:{
-        type:String,
+    otp: {
+        type: String,
     },
 
-    otpExpiry:{
-        type:Date
+    otpExpiry: {
+        type: Date
     }
 })
 
-export default mongoose.model<IStudent>("Student",studentSchema);
+// Compound unique index: same email can exist across different clients,
+// but must be unique within a single client's dataset
+studentSchema.index({ clientId: 1, email: 1 }, { unique: true })
+studentSchema.index({ clientId: 1, rollNo: 1 }, { unique: true })
+
+export default mongoose.model<IStudent>("Student", studentSchema);

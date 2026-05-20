@@ -1,14 +1,20 @@
 import express from 'express'
 import multer from 'multer'
 import path from 'path'
+import fs from 'fs'
 import { CSVController } from '../controller/csvController'
 
 const router = express.Router()
 
-// Configure multer for CSV uploads
+// Configure multer for CSV uploads — absolute path so it works regardless of cwd
+const uploadsDir = path.join(__dirname, '../../uploads')
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true })
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/')
+    cb(null, uploadsDir)
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)

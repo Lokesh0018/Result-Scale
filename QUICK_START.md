@@ -84,7 +84,7 @@ npm run dev
 3. Upload a CSV file with this format:
 
 ```csv
-rollno,student_name,email_address,semester,scgpa
+rollno,student_name,email_address,semester,cgpa
 21A91A0501,John Doe,john@example.com,6,8.5
 21A91A0502,Jane Smith,jane@example.com,6,9.2
 21A91A0503,Bob Johnson,bob@example.com,6,7.8
@@ -127,7 +127,7 @@ rollno,student_name,email_address,semester,scgpa
 
 ### Small Dataset (3 students)
 ```csv
-rollno,student_name,email_address,semester,scgpa
+rollno,student_name,email_address,semester,cgpa
 21A91A0501,John Doe,john@example.com,6,8.5
 21A91A0502,Jane Smith,jane@example.com,6,9.2
 21A91A0503,Bob Johnson,bob@example.com,6,7.8
@@ -135,7 +135,7 @@ rollno,student_name,email_address,semester,scgpa
 
 ### Medium Dataset (10 students)
 ```csv
-rollno,student_name,email_address,semester,scgpa
+rollno,student_name,email_address,semester,cgpa
 21A91A0501,John Doe,john1@example.com,6,8.5
 21A91A0502,Jane Smith,jane2@example.com,6,9.2
 21A91A0503,Bob Johnson,bob3@example.com,6,7.8
@@ -167,7 +167,7 @@ rollno,student_name,email_address,semester,scgpa
 
 ### Issue: CSV upload fails
 **Solution:**
-- Verify CSV format matches exactly: `rollno,student_name,email_address,semester,scgpa`
+- Verify CSV format matches exactly: `rollno,student_name,email_address,semester,cgpa`
 - Check for duplicate roll numbers or emails
 - Ensure semester is between 1-8
 - Ensure SGPA is between 0-10

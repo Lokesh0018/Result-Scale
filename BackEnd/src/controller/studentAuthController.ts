@@ -9,44 +9,70 @@ export class StudentAuthController {
    */
   static async login(req: Request, res: Response): Promise<void> {
     try {
-      const { identifier } = req.body // Can be roll number or email
+      console.log('=== Student Login Started ===')
+      // Accept either {identifier} or {rollNo, email} from frontend
+      const { identifier, rollNo, email } = req.body
+      const lookup = (identifier || rollNo || email || '').trim()
+      console.log('Lookup value:', lookup)
 
-      if (!identifier || !identifier.trim()) {
-        res.status(400).json({ success: false, message: 'Roll number or email is required' })
+      if (!lookup) {
+        res.status(400).json({
+          success: false,
+          message: 'Roll number or email is required'
+        })
         return
       }
 
       // Search by roll number or email
+      console.log('Searching for student...')
       const student = await Student.findOne({
         $or: [
-          { rollNo: identifier.trim() },
-          { email: identifier.trim().toLowerCase() }
+          { rollNo: lookup },
+          { email: lookup.toLowerCase() }
         ]
       })
 
       if (!student) {
-        // Track failed login
-        AnalyticsService.trackFailedLogin(identifier)
-        res.status(404).json({ success: false, message: 'Student not found. Please check your roll number or email.' })
+        console.log('Student not found:', lookup)
+        AnalyticsService.trackFailedLogin(lookup)
+        res.status(404).json({
+          success: false,
+          message: 'Student not found. Please check your roll number or email and ensure your institution has uploaded the results.'
+        })
         return
       }
 
+      console.log('Student found:', student.rollNo, student.name)
+
       // Generate and save OTP
+      console.log('Generating OTP...')
       const otpResult = await OTPService.generateAndSaveOTP(student._id)
 
       if (!otpResult.success || !otpResult.otp) {
-        res.status(500).json({ success: false, message: 'Failed to generate OTP. Please try again.' })
+        console.error('Failed to generate OTP')
+        res.status(500).json({ 
+          success: false, 
+          message: 'Failed to generate OTP. Please try again.' 
+        })
         return
       }
 
+      console.log('OTP generated successfully')
+
       // Send OTP via email
+      console.log('Sending OTP email...')
       const emailSent = await OTPService.sendOTP(student.email, otpResult.otp, student.name)
 
       if (!emailSent) {
-        res.status(500).json({ success: false, message: 'Failed to send OTP email. Please try again.' })
+        console.error('Failed to send OTP email')
+        res.status(500).json({ 
+          success: false, 
+          message: 'Failed to send OTP email. Please check your email address and try again.' 
+        })
         return
       }
 
+      console.log('=== Student Login Successful ===')
       res.status(200).json({
         success: true,
         message: 'OTP sent successfully to your registered email',
@@ -54,11 +80,13 @@ export class StudentAuthController {
         email: student.email.replace(/(.{2})(.*)(@.*)/, '$1***$3') // Mask email
       })
     } catch (error: any) {
-      console.error('Student login error:', error)
+      console.error('=== Student login error ===')
+      console.error('Error:', error)
+      console.error('Stack:', error.stack)
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message
+        error: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
       })
     }
   }
@@ -68,22 +96,43 @@ export class StudentAuthController {
    */
   static async verifyOTP(req: Request, res: Response): Promise<void> {
     try {
-      const { studentId, otp } = req.body
+      console.log('=== OTP Verification Started ===')
+      // Accept {studentId, otp} or {email, otp} from frontend
+      const { studentId, email, otp } = req.body
+      console.log('Student ID:', studentId, 'Email:', email)
+      console.log('OTP:', otp)
 
-      if (!studentId || !otp) {
-        res.status(400).json({ success: false, message: 'Student ID and OTP are required' })
+      if ((!studentId && !email) || !otp) {
+        res.status(400).json({
+          success: false,
+          message: 'Student identifier and OTP are required'
+        })
+        return
+      }
+
+      // Resolve student
+      let student
+      if (studentId) {
+        student = await Student.findById(studentId)
+      } else {
+        student = await Student.findOne({ email: email.trim().toLowerCase() })
+      }
+
+      if (!student) {
+        res.status(404).json({ success: false, message: 'Student not found' })
         return
       }
 
       // Verify OTP
-      const verificationResult = await OTPService.verifyOTP(studentId, otp)
+      console.log('Verifying OTP...')
+      const verificationResult = await OTPService.verifyOTP(student._id, otp)
 
       if (!verificationResult.valid) {
-        // Track failed OTP attempt
+        console.log('OTP verification failed:', verificationResult.message)
         AnalyticsService.trackSecurityEvent({
           type: 'failed_login',
           timestamp: new Date(),
-          identifier: studentId,
+          identifier: student._id.toString(),
           details: 'Failed OTP verification'
         })
 
@@ -94,33 +143,37 @@ export class StudentAuthController {
         return
       }
 
-      // Get student data
-      const student = await Student.findById(studentId).select('-otp -otpExpiry')
+      console.log('OTP verified successfully')
 
-      if (!student) {
+      // Re-fetch student to get latest data (OTP fields cleared)
+      const freshStudent = await Student.findById(student._id).select('name email rollNo semester sgpa institutionName')
+
+      if (!freshStudent) {
         res.status(404).json({ success: false, message: 'Student not found' })
         return
       }
 
+      console.log('=== OTP Verification Successful ===')
       res.status(200).json({
         success: true,
         message: 'OTP verified successfully',
         student: {
-          id: student._id,
-          name: student.name,
-          email: student.email,
-          rollNo: student.rollNo,
-          institutionName: student.institutionName,
-          semester: student.semester,
-          sgpa: student.sgpa
+          rollNo: freshStudent.rollNo,
+          name: freshStudent.name,
+          email: freshStudent.email,
+          semester: freshStudent.semester,
+          sgpa: freshStudent.sgpa,
+          institutionName: freshStudent.institutionName
         }
       })
     } catch (error: any) {
-      console.error('OTP verification error:', error)
+      console.error('=== OTP verification error ===')
+      console.error('Error:', error)
+      console.error('Stack:', error.stack)
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message
+        error: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
       })
     }
   }
@@ -195,38 +248,49 @@ export class StudentAuthController {
    */
   static async getResult(req: Request, res: Response): Promise<void> {
     try {
+      console.log('=== Get Student Result ===')
       const { studentId } = req.params
+      console.log('Student ID:', studentId)
 
       if (!studentId) {
-        res.status(400).json({ success: false, message: 'Student ID is required' })
+        res.status(400).json({ 
+          success: false, 
+          message: 'Student ID is required' 
+        })
         return
       }
 
-      const student = await Student.findById(studentId).select('-otp -otpExpiry')
+      // Only return CSV fields: rollNo, name, semester, sgpa
+      const student = await Student.findById(studentId).select('name email rollNo semester sgpa')
 
       if (!student) {
-        res.status(404).json({ success: false, message: 'Student not found' })
+        console.error('Student not found:', studentId)
+        res.status(404).json({ 
+          success: false, 
+          message: 'Student not found' 
+        })
         return
       }
 
+      console.log('Student result retrieved:', student.rollNo)
       res.status(200).json({
         success: true,
         student: {
-          id: student._id,
+          rollNo: student.rollNo,
           name: student.name,
           email: student.email,
-          rollNo: student.rollNo,
-          institutionName: student.institutionName,
           semester: student.semester,
           sgpa: student.sgpa
         }
       })
     } catch (error: any) {
-      console.error('Get result error:', error)
+      console.error('=== Get result error ===')
+      console.error('Error:', error)
+      console.error('Stack:', error.stack)
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message
+        error: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
       })
     }
   }

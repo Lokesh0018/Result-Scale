@@ -140,7 +140,7 @@ This document describes the complete end-to-end CSV-driven result delivery infra
 ```
 1. Institution logs in → Client Dashboard
 2. Clicks "Upload CSV" button
-3. Selects CSV file (format: rollno, student_name, email_address, semester, scgpa)
+3. Selects CSV file (format: rollno, student_name, email_address, semester, cgpa)
 4. Backend validates CSV:
    ✓ Required columns present
    ✓ No duplicate roll numbers
@@ -212,7 +212,7 @@ This document describes the complete end-to-end CSV-driven result delivery infra
 ### Required Columns
 
 ```csv
-rollno,student_name,email_address,semester,scgpa
+rollno,student_name,email_address,semester,cgpa
 21A91A0501,John Doe,john@example.com,6,8.5
 21A91A0502,Jane Smith,jane@example.com,6,9.2
 21A91A0503,Bob Johnson,bob@example.com,6,7.8
@@ -226,7 +226,7 @@ rollno,student_name,email_address,semester,scgpa
 | `student_name` | String | Required, Non-empty |
 | `email_address` | String | Required, Valid email format, Unique in CSV |
 | `semester` | Number | Required, Integer between 1-8 |
-| `scgpa` | Number | Required, Decimal between 0-10 |
+| `cgpa` | Number | Required, Decimal between 0-10 |
 
 ---
 

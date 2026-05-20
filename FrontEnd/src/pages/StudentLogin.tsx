@@ -50,16 +50,21 @@ function StudentLogin() {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(formData),
+      body: JSON.stringify({
+        rollNo: formData.rollNo.trim(),
+        email: formData.email.trim().toLowerCase(),
+      }),
     }).then(async (res) => {
       const data = await res.json();
       if (!res.ok)
         throw new Error(data.message);
+      return data;
     }).then((data) => {
       showToast('OTP sent to your email address!', 'success');
       navigate('/student/verify-otp', {
         state: {
-          email: formData.email,
+          email: formData.email.trim().toLowerCase(),
+          studentId: data.studentId,
         },
       });
     }).catch((err: any) => {

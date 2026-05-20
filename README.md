@@ -233,7 +233,7 @@ Login (roll number/email) → Receive OTP → Verify OTP → View Result
 ## 📁 CSV Format
 
 ```csv
-rollno,student_name,email_address,semester,scgpa
+rollno,student_name,email_address,semester,cgpa
 21A91A0501,John Doe,john@example.com,6,8.5
 21A91A0502,Jane Smith,jane@example.com,6,9.2
 ```
@@ -243,7 +243,7 @@ rollno,student_name,email_address,semester,scgpa
 - `student_name`: Required, Non-empty
 - `email_address`: Required, Valid format, Unique
 - `semester`: Required, Integer 1-8
-- `scgpa`: Required, Decimal 0-10
+- `cgpa`: Required, Decimal 0-10
 
 ---
 

@@ -5,7 +5,7 @@ export interface CSVStudentRow {
   student_name: string
   email_address: string
   semester: string
-  scgpa: string
+  cgpa: string
 }
 
 export interface ParsedStudent {
@@ -13,7 +13,7 @@ export interface ParsedStudent {
   name: string
   email: string
   semester: number
-  scgpa: number
+  cgpa: number
 }
 
 export interface CSVValidationError {
