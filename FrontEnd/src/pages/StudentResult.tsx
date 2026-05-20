@@ -8,7 +8,7 @@ function StudentResult() {
   const student = location.state?.student
 
   const mockResult = {
-    student: student || { name: 'N/A', rollNo: 'N/A', program: 'B.Tech', semester: 'N/A' },
+    student: student || { name: 'N/A', rollNo: 'N/A', program: 'B.Tech', semester: 'N/A', sgpa: 0 },
     subjects: [
       { code: 'CS401', name: 'Data Structures', credits: 4, grade: 'A', points: 9 },
       { code: 'CS402', name: 'Database Systems', credits: 4, grade: 'A+', points: 10 },
@@ -93,7 +93,7 @@ function StudentResult() {
 
           <div className="result-summary">
             <div className="result-summary-item">
-              <div className="result-summary-value">{mockResult.student.sgpa.toFixed(2)}</div>
+              <div className="result-summary-value">{mockResult.student.sgpa?.toFixed(2) ?? '0.00'}</div>
               <div className="result-summary-label">SGPA</div>
             </div>
             <div className="result-summary-item">
