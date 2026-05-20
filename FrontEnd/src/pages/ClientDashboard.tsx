@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   BarChart3, LayoutDashboard, Upload, Users, Settings, LogOut,
@@ -26,6 +26,8 @@ function ClientDashboard() {
   const [addOrUpdate, setAddOrUpdate] = useState(true);
   const [deleteModal, setDeleteModal] = useState(false);
   const [semester,setSemester] = useState(0);
+  const [isUploadingCsv, setIsUploadingCsv] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [formData, setFormData] = useState({
     clientId: clientId,
     rollNo: "",
@@ -218,6 +220,111 @@ function ClientDashboard() {
     setDeleteModal(false);
     setSemester(students.reduce((acc,student) => acc + student.semester,0));
   }
+
+  const parseCsvRows = (csvText: string) => {
+    const rows = csvText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (rows.length < 2) {
+      throw new Error("CSV must include a header row and at least one data row.");
+    }
+
+    const headers = rows[0].split(",").map((header) => header.trim().toLowerCase());
+    const requiredHeaders = ["roll_no", "name", "email", "semester", "sgpa"];
+
+    const missingHeaders = requiredHeaders.filter((header) => !headers.includes(header));
+    if (missingHeaders.length > 0) {
+      throw new Error(`Missing required CSV headers: ${missingHeaders.join(", ")}`);
+    }
+
+    return rows.slice(1).map((row, index) => {
+      const values = row.split(",").map((value) => value.trim());
+      const getValue = (key: string) => values[headers.indexOf(key)] ?? "";
+
+      const parsedSemester = Number(getValue("semester"));
+      const parsedSgpa = Number(getValue("sgpa"));
+
+      if (!getValue("roll_no") || !getValue("name") || !getValue("email")) {
+        throw new Error(`Row ${index + 2}: roll_no, name and email are required.`);
+      }
+
+      if (!Number.isFinite(parsedSemester) || parsedSemester <= 0) {
+        throw new Error(`Row ${index + 2}: semester must be a positive number.`);
+      }
+
+      if (!Number.isFinite(parsedSgpa) || parsedSgpa <= 0) {
+        throw new Error(`Row ${index + 2}: sgpa must be a positive number.`);
+      }
+
+      return {
+        clientId,
+        rollNo: getValue("roll_no"),
+        name: getValue("name"),
+        email: getValue("email"),
+        semester: parsedSemester,
+        sgpa: parsedSgpa,
+      };
+    });
+  };
+
+  const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      showToast('Please upload a valid .csv file.', 'error');
+      return;
+    }
+
+    setIsUploadingCsv(true);
+    try {
+      const csvText = await file.text();
+      const studentsFromCsv = parseCsvRows(csvText);
+
+      const uploadResponses = await Promise.allSettled(
+        studentsFromCsv.map((student) =>
+          fetch("http://localhost:3000/client/students", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(student),
+          }).then(async (res) => {
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.message || `Failed to upload ${student.email}`);
+            }
+            return data.student as Student;
+          })
+        )
+      );
+
+      const successfulUploads = uploadResponses
+        .filter((result): result is PromiseFulfilledResult<Student> => result.status === 'fulfilled')
+        .map((result) => result.value);
+
+      if (successfulUploads.length > 0) {
+        setStudents((prev) => [...prev, ...successfulUploads]);
+      }
+
+      const failedUploads = uploadResponses.filter((result) => result.status === 'rejected');
+      if (failedUploads.length === 0) {
+        showToast(`Uploaded ${successfulUploads.length} students successfully.`, 'success');
+      } else {
+        showToast(
+          `Uploaded ${successfulUploads.length} student(s), failed ${failedUploads.length}.`,
+          'error'
+        );
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to parse or upload CSV file.', 'error');
+    } finally {
+      setIsUploadingCsv(false);
+      event.target.value = '';
+    }
+  };
 
 
   return (
@@ -422,8 +529,20 @@ function ClientDashboard() {
                       <br />
                       Supported format: .csv (max 10MB)
                     </p>
-                    <button className="btn btn-primary" style={{ marginTop: 'var(--spacing-lg)' }}>
-                      Select File
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={handleCsvUpload}
+                      style={{ display: 'none' }}
+                    />
+                    <button
+                      className="btn btn-primary"
+                      style={{ marginTop: 'var(--spacing-lg)' }}
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingCsv}
+                    >
+                      {isUploadingCsv ? 'Uploading...' : 'Select File'}
                     </button>
 
                     <div className="upload-info">
