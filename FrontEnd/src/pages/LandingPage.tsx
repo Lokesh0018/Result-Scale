@@ -410,7 +410,7 @@ function LandingPage() {
             <Link to="/admin/login" className="btn btn-primary btn-lg">
               Get Started
             </Link>
-            <Link to="/admin/login" className="btn btn-outline btn-lg cta-btn-outline">
+            <Link to="/contact" className="btn btn-outline btn-lg cta-btn-outline">
               Contact Us
             </Link>
           </div>

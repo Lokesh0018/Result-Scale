@@ -11,6 +11,7 @@ import ExpiredAccess from './pages/ExpiredAccess'
 import AdminDashboard from './pages/AdminDashboard'
 import ClientDashboard from './pages/ClientDashboard'
 import DatabaseStructure from './pages/DatabaseStructure'
+import ContactPage from './pages/ContactPage'
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/client/dashboard" element={<ClientDashboard />} />
           <Route path="/database" element={<DatabaseStructure />} />
+          <Route path="/contact" element={<ContactPage />} />
         </Routes>
       </ToastProvider>
     </ThemeProvider>
