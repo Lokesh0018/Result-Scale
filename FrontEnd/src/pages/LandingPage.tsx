@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { BarChart3, Shield, Clock, Upload, Users, ChevronRight, Check, GraduationCap, Building2, Settings, MoonStar, Sun } from 'lucide-react'
+import { BarChart3, Shield, Clock, Upload, Users, ChevronRight, Check, GraduationCap, Building2, Settings, MoonStar, Sun, Server } from 'lucide-react'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/landing.css'
 import { useTheme } from "../components/ThemeProvider";
@@ -22,6 +22,7 @@ function LandingPage() {
           </button>
           <a href="#features" className="nav-link">Features</a>
           <a href="#pricing" className="nav-link">Pricing</a>
+          <a href="#about" className="nav-link">About</a>
           <Link to="/database" className="nav-link">Database</Link>
           <Link to="/admin/login" className="btn btn-primary">Get Started</Link>
         </nav>
@@ -264,6 +265,154 @@ function LandingPage() {
               </div>
             </div>
             <Link to="/admin/login" className="btn btn-outline pricing-btn">Contact Sales</Link>
+          </div>
+        </div>
+      </section>
+
+      {/* About Section */}
+      <section className="about-section" id="about">
+        <div className="section-header">
+          <span className="section-badge">Trusted by Educational Institutions</span>
+          <h2 className="section-title">
+            Built to Simplify <span>Secure Result Hosting</span>
+          </h2>
+          <p className="section-description">
+            ResultScale helps schools, colleges, and training institutions securely host, manage, and share student results online. Designed for simplicity and reliability, the platform offers OTP verification, role-based access, and an intuitive portal system for administrators, clients, and students.
+          </p>
+        </div>
+
+        {/* Feature Cards Grid (horizontal style matching portal cards) */}
+        <div className="about-cards-grid">
+          <div className="about-card">
+            <div className="about-card-icon secure">
+              <Shield size={24} />
+            </div>
+            <div className="about-card-content">
+              <h3 className="about-card-title">Secure Access</h3>
+              <p className="about-card-description">
+                OTP verification and protected result access for students.
+              </p>
+            </div>
+          </div>
+
+          <div className="about-card">
+            <div className="about-card-icon management">
+              <Upload size={24} />
+            </div>
+            <div className="about-card-content">
+              <h3 className="about-card-title">Easy Management</h3>
+              <p className="about-card-description">
+                Upload, organize, and manage results without technical complexity.
+              </p>
+            </div>
+          </div>
+
+          <div className="about-card">
+            <div className="about-card-icon scalable">
+              <Server size={24} />
+            </div>
+            <div className="about-card-content">
+              <h3 className="about-card-title">Scalable Platform</h3>
+              <p className="about-card-description">
+                Built for institutions of all sizes with reliable cloud infrastructure.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Split Mission Section */}
+        <div className="about-mission-section">
+          <div className="about-mission-left">
+            <div className="dashboard-preview">
+              <div className="mock-sidebar">
+                <div className="mock-logo"></div>
+                <div className="mock-nav-item active">
+                  <div className="mock-nav-circle"></div>
+                </div>
+                <div className="mock-nav-item">
+                  <div className="mock-nav-circle"></div>
+                </div>
+                <div className="mock-nav-item">
+                  <div className="mock-nav-circle"></div>
+                </div>
+              </div>
+              <div className="mock-main">
+                <div className="mock-header">
+                  <div className="mock-header-title"></div>
+                  <div className="mock-header-profile"></div>
+                </div>
+                <div className="mock-content">
+                  <div className="mock-stats">
+                    <div className="mock-stat-card">
+                      <div className="mock-stat-label"></div>
+                      <div className="mock-stat-value"></div>
+                    </div>
+                    <div className="mock-stat-card">
+                      <div className="mock-stat-label"></div>
+                      <div className="mock-stat-value"></div>
+                    </div>
+                    <div className="mock-stat-card">
+                      <div className="mock-stat-label"></div>
+                      <div className="mock-stat-value"></div>
+                    </div>
+                  </div>
+                  <div className="mock-chart">
+                    <div className="mock-chart-header">
+                      <div className="mock-chart-title"></div>
+                      <div className="mock-chart-legend"></div>
+                    </div>
+                    <div className="mock-chart-bars">
+                      <div className="mock-chart-bar" style={{ height: '40%' }}></div>
+                      <div className="mock-chart-bar active" style={{ height: '70%' }}></div>
+                      <div className="mock-chart-bar" style={{ height: '55%' }}></div>
+                      <div className="mock-chart-bar" style={{ height: '85%' }}></div>
+                      <div className="mock-chart-bar" style={{ height: '50%' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="about-mission-right">
+            <div className="mission-content">
+              <span className="mission-badge">Our Mission</span>
+              <h3 className="mission-title">Empowering Education with Simplicity</h3>
+              <p className="mission-text">
+                To make result management simple, secure, and accessible for every educational institution.
+              </p>
+              <ul className="mission-bullets">
+                <li>
+                  <Check size={16} className="bullet-icon" />
+                  <span>Streamlined administrator and student portals</span>
+                </li>
+                <li>
+                  <Check size={16} className="bullet-icon" />
+                  <span>Zero technical expertise required to host results</span>
+                </li>
+                <li>
+                  <Check size={16} className="bullet-icon" />
+                  <span>Robust security and privacy compliance</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="cta-section">
+        <div className="cta-container">
+          <h2 className="cta-title">Start Managing Results Smarter</h2>
+          <p className="cta-subtext">
+            Join institutions already using ResultScale to securely publish and manage academic results.
+          </p>
+          <div className="cta-buttons">
+            <Link to="/admin/login" className="btn btn-primary btn-lg">
+              Get Started
+            </Link>
+            <Link to="/admin/login" className="btn btn-outline btn-lg cta-btn-outline">
+              Contact Us
+            </Link>
           </div>
         </div>
       </section>
