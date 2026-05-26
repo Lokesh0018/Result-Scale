@@ -4,6 +4,7 @@ import { BarChart3, ArrowLeft, GraduationCap } from 'lucide-react'
 import { useToast } from '../components/Toast'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/auth.css'
+const API_URL = (import.meta as any).env.VITE_API_URL;
 
 function StudentLogin() {
   const navigate = useNavigate()
@@ -46,7 +47,7 @@ function StudentLogin() {
       return
     }
 
-    fetch("http://localhost:3000/student/login", {
+    fetch(`${API_URL}/student/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

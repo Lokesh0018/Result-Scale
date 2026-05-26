@@ -8,11 +8,17 @@ import { router as clientRoutes } from "./routes/clientRoutes";
 import { router as studentRoutes } from "./routes/studentRoutes";
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: [
+      "https://resultscale.web.app",
+      "http://localhost:5173",
+    ],
+    credentials: true,
+  }));
 app.use(express.json());
 connectDB();
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 app.use("/admin", adminRoutes);
 app.use("/client", clientRoutes);
 app.use("/student", studentRoutes);

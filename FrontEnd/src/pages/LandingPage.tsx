@@ -52,16 +52,16 @@ function LandingPage() {
           </div>
           <div className="hero-stats">
             <div className="stat-item">
-              <div className="stat-value">500+</div>
-              <div className="stat-label">Institutions</div>
+              <div className="stat-value">🚀</div>
+              <div className="stat-label">Ready to Empower Institutions</div>
             </div>
             <div className="stat-item">
-              <div className="stat-value">1M+</div>
-              <div className="stat-label">Results Hosted</div>
+              <div className="stat-value">✨</div>
+              <div className="stat-label">Built for Seamless Result Hosting</div>
             </div>
             <div className="stat-item">
-              <div className="stat-value">99.9%</div>
-              <div className="stat-label">Uptime</div>
+              <div className="stat-value">🔒</div>
+              <div className="stat-label">Secure & Scalable from Day One</div>
             </div>
           </div>
         </div>
