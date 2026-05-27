@@ -23,7 +23,6 @@ function LandingPage() {
           <a href="#features" className="nav-link">Features</a>
           <a href="#pricing" className="nav-link">Pricing</a>
           <a href="#about" className="nav-link">About</a>
-          <Link to="/database" className="nav-link">Database</Link>
           <Link to="/admin/login" className="btn btn-primary">Get Started</Link>
         </nav>
       </header>

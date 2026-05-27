@@ -264,7 +264,7 @@ function ContactPage() {
                   </div>
                   <div className="info-text">
                     <span className="info-label">Email Support</span>
-                    <a href="mailto:support@resultscale.com" className="info-value link-highlight">
+                    <a href="mailto:resultscale@gmail.com" className="info-value link-highlight">
                       resultscale@gmail.com
                     </a>
                   </div>
@@ -276,7 +276,7 @@ function ContactPage() {
                   </div>
                   <div className="info-text">
                     <span className="info-label">Call Support</span>
-                    <a href="tel:+919876543210" className="info-value link-highlight">
+                    <a href="tel:+917396287000" className="info-value link-highlight">
                       +91 73962 87000
                     </a>
                   </div>

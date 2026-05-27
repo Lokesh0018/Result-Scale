@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export const  submitInquiry = async (req: Request, res: Response) => {
+export const submitInquiry = async (req: Request, res: Response) => {
   const { fullName, institutionName, email, phone, subject, message } = req.body;
 
   try {
@@ -60,7 +60,7 @@ export const  submitInquiry = async (req: Request, res: Response) => {
     // 3. Send email to admin
     const adminEmail = "resultscale@gmail.com";
     const mailOptions = {
-      from: process.env.EMAIL,
+      from: process.env.EMAIL as string,
       to: adminEmail,
       subject: `[Contact Inquiry] ${subject.trim()}`,
       html: `
@@ -109,7 +109,12 @@ export const  submitInquiry = async (req: Request, res: Response) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      console.log("Email sent:", info.response);
+    } catch (err) {
+      console.error("Mail error:", err);
+    }
 
     return res.status(200).json({
       success: true,

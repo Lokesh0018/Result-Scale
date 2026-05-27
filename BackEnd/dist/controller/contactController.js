@@ -55,7 +55,7 @@ const submitInquiry = async (req, res) => {
         });
         await inquiry.save();
         // 3. Send email to admin
-        const adminEmail = "admin@resultscale.com";
+        const adminEmail = "resultscale@gmail.com";
         const mailOptions = {
             from: process.env.EMAIL,
             to: adminEmail,
@@ -105,7 +105,13 @@ const submitInquiry = async (req, res) => {
         </div>
       `,
         };
-        await transporter.sendMail(mailOptions);
+        try {
+            const info = await transporter.sendMail(mailOptions);
+            console.log("Email sent:", info.response);
+        }
+        catch (err) {
+            console.error("Mail error:", err);
+        }
         return res.status(200).json({
             success: true,
             message: "Your message has been sent successfully.",
