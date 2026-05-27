@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getActivityLogs = exports.updatePassword = exports.getStudents = exports.deleteClient = exports.updateClient = exports.addClient = exports.getDashboard = void 0;
+exports.deleteInquiry = exports.updateInquiryStatus = exports.getInquiries = exports.getActivityLogs = exports.updatePassword = exports.getStudents = exports.deleteClient = exports.updateClient = exports.addClient = exports.getDashboard = void 0;
 const adminService_1 = require("../service/adminService");
 const logService_1 = require("../service/logService");
 const getDashboard = async (req, res) => {
@@ -191,3 +191,84 @@ const getActivityLogs = async (req, res) => {
     }
 };
 exports.getActivityLogs = getActivityLogs;
+const getInquiries = async (req, res) => {
+    try {
+        const inquiries = await (0, adminService_1.GetInquiries)();
+        return res.status(200).json({
+            success: true,
+            message: "Inquiries fetched successfully",
+            inquiries
+        });
+    }
+    catch (err) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            err: err.message
+        });
+    }
+};
+exports.getInquiries = getInquiries;
+const updateInquiryStatus = async (req, res) => {
+    const id = req.params.id;
+    const { status } = req.body;
+    const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
+    const actorRole = req.headers["x-user-role"] || "admin";
+    try {
+        if (!status || !['unread', 'read'].includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: "Valid status ('unread' or 'read') is required"
+            });
+        }
+        const inquiry = await (0, adminService_1.UpdateInquiryStatus)(id, status);
+        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Inquiry Status Updated", "system", `Updated status of inquiry from ${inquiry.fullName} to ${status}`, "success");
+        return res.status(200).json({
+            success: true,
+            message: "Inquiry status updated successfully",
+            inquiry
+        });
+    }
+    catch (err) {
+        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Inquiry Status Update Failed", "system", `Failed to update inquiry status for ID ${id}: ${err.message}`, "failure");
+        if (err.message === "Inquiry not found !") {
+            return res.status(404).json({
+                success: false,
+                message: err.message
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: err.message
+        });
+    }
+};
+exports.updateInquiryStatus = updateInquiryStatus;
+const deleteInquiry = async (req, res) => {
+    const id = req.params.id;
+    const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
+    const actorRole = req.headers["x-user-role"] || "admin";
+    try {
+        const inquiry = await (0, adminService_1.DeleteInquiry)(id);
+        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Inquiry Deleted", "system", `Deleted inquiry from ${inquiry.fullName} (${inquiry.email})`, "success");
+        return res.status(200).json({
+            success: true,
+            message: "Inquiry deleted successfully",
+            inquiry
+        });
+    }
+    catch (err) {
+        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Inquiry Deletion Failed", "system", `Failed to delete inquiry ID ${id}: ${err.message}`, "failure");
+        if (err.message === "Inquiry not found !") {
+            return res.status(404).json({
+                success: false,
+                message: err.message
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: err.message
+        });
+    }
+};
+exports.deleteInquiry = deleteInquiry;

@@ -65,6 +65,11 @@ const inquirySchema = new mongoose_1.Schema({
         type: String,
         required: true,
     },
+    status: {
+        type: String,
+        enum: ["unread", "read"],
+        default: "unread",
+    },
     createdAt: {
         type: Date,
         default: Date.now,

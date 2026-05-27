@@ -1,6 +1,7 @@
 import Admin from "../models/Admin";
 import Client from "../models/Client";
 import Student from "../models/Student";
+import Inquiry from "../models/Inquiry";
 
 export const GetDashboard = async () => {
     return await Client.find().lean();
@@ -74,4 +75,25 @@ export const UpdatePassword = async (email: string, password: string) => {
     await admin.save();
     const { password: _password, ...adminDto } = admin.toObject();
     return adminDto;
+}
+
+export const GetInquiries = async () => {
+    return await Inquiry.find().sort({ createdAt: -1 }).lean();
+}
+
+export const UpdateInquiryStatus = async (id: string, status: 'unread' | 'read') => {
+    const inquiry = await Inquiry.findById(id);
+    if (!inquiry)
+        throw new Error("Inquiry not found !");
+    inquiry.status = status;
+    await inquiry.save();
+    return inquiry.toObject();
+}
+
+export const DeleteInquiry = async (id: string) => {
+    const inquiry = await Inquiry.findById(id);
+    if (!inquiry)
+        throw new Error("Inquiry not found !");
+    await Inquiry.deleteOne({ _id: id });
+    return inquiry.toObject();
 }

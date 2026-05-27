@@ -4,6 +4,7 @@ import { BarChart3, ArrowLeft, GraduationCap } from 'lucide-react'
 import { useToast } from '../components/Toast'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/auth.css'
+
 const API_URL = (import.meta as any).env.VITE_API_URL;
 
 function StudentLogin() {
