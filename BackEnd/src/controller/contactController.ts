@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export const submitInquiry = async (req: Request, res: Response) => {
+export const  submitInquiry = async (req: Request, res: Response) => {
   const { fullName, institutionName, email, phone, subject, message } = req.body;
 
   try {
@@ -58,7 +58,7 @@ export const submitInquiry = async (req: Request, res: Response) => {
     await inquiry.save();
 
     // 3. Send email to admin
-    const adminEmail = "admin@resultscale.com";
+    const adminEmail = "resultscale@gmail.com";
     const mailOptions = {
       from: process.env.EMAIL,
       to: adminEmail,
