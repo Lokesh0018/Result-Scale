@@ -7,6 +7,7 @@ export interface IInquiry extends Document {
   phone: string;
   subject: string;
   message: string;
+  status: 'unread' | 'read';
   createdAt: Date;
 }
 
@@ -40,6 +41,11 @@ const inquirySchema = new Schema<IInquiry>({
   message: {
     type: String,
     required: true,
+  },
+  status: {
+    type: String,
+    enum: ["unread", "read"],
+    default: "unread",
   },
   createdAt: {
     type: Date,

@@ -4,7 +4,7 @@ import {
   BarChart3, LayoutDashboard, Users, Settings, LogOut,
   Bell, Building2, UserCheck, Clock, Menu, X,
   Plus, Pencil, Trash2, Mail, Calendar, Shield, Database, MoonStar, Sun,
-  History, RotateCw, CheckCircle, XCircle
+  History, RotateCw, CheckCircle, XCircle, Eye, MailOpen
 } from 'lucide-react'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/dashboard.css'
@@ -70,6 +70,28 @@ function AdminDashboard() {
   const [filterLogStatus, setFilterLogStatus] = useState<'all' | 'success' | 'failure'>('all');
   const [logSortOrder, setLogSortOrder] = useState<'asc' | 'desc'>('desc');
 
+  interface Inquiry {
+    _id: string;
+    fullName: string;
+    institutionName: string;
+    email: string;
+    phone: string;
+    subject: string;
+    message: string;
+    status: 'unread' | 'read';
+    createdAt: string;
+  }
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [loadingInquiries, setLoadingInquiries] = useState(false);
+  const [inquiryError, setInquiryError] = useState<string | null>(null);
+  const [inquirySearch, setInquirySearch] = useState('');
+  const [inquiryFilterStatus, setInquiryFilterStatus] = useState<'all' | 'unread' | 'read'>('all');
+  const [inquirySortOrder, setInquirySortOrder] = useState<'asc' | 'desc'>('desc');
+  const [inquiryPage, setInquiryPage] = useState(1);
+  const [inquiryPerPage] = useState(5);
+  const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
+  const [deleteInquiryModal, setDeleteInquiryModal] = useState<Inquiry | null>(null);
+
   const [adminEmail, setAdminEmail] = useState(localStorage.getItem("userEmail") || "admin@resultscale.com");
   const [adminPassword, setAdminPassword] = useState("");
   const [smtpServer, setSmtpServer] = useState(localStorage.getItem("settings_smtpServer") || "smtp.resultscale.com");
@@ -132,6 +154,106 @@ function AdminDashboard() {
       const timeB = new Date(b.timestamp).getTime();
       return logSortOrder === 'desc' ? timeB - timeA : timeA - timeB;
     });
+
+  const processedInquiries = inquiries
+    .filter(inq => {
+      const matchesSearch = 
+        inq.fullName.toLowerCase().includes(inquirySearch.toLowerCase()) ||
+        inq.email.toLowerCase().includes(inquirySearch.toLowerCase()) ||
+        inq.phone.toLowerCase().includes(inquirySearch.toLowerCase()) ||
+        inq.institutionName.toLowerCase().includes(inquirySearch.toLowerCase()) ||
+        inq.subject.toLowerCase().includes(inquirySearch.toLowerCase()) ||
+        inq.message.toLowerCase().includes(inquirySearch.toLowerCase());
+      
+      const matchesStatus = 
+        inquiryFilterStatus === 'all' || inq.status === inquiryFilterStatus;
+        
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.createdAt).getTime();
+      const timeB = new Date(b.createdAt).getTime();
+      return inquirySortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+    });
+
+  const totalInquiryPages = Math.ceil(processedInquiries.length / inquiryPerPage);
+  const inquiryStartIndex = (inquiryPage - 1) * inquiryPerPage;
+  const paginatedInquiries = processedInquiries.slice(inquiryStartIndex, inquiryStartIndex + inquiryPerPage);
+
+  const fetchInquiries = () => {
+    setLoadingInquiries(true);
+    setInquiryError(null);
+    fetch(`${API_URL}/admin/inquiries`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Email": adminEmail,
+        "X-User-Role": "admin"
+      }
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to fetch inquiries");
+      return data;
+    }).then((data) => {
+      setInquiries(data.inquiries || []);
+    }).catch((err) => {
+      setInquiryError(err.message);
+      showToast(err.message, 'error');
+    }).finally(() => {
+      setLoadingInquiries(false);
+    });
+  };
+
+  const handleUpdateInquiryStatus = async (id: string, newStatus: 'unread' | 'read') => {
+    fetch(`${API_URL}/admin/inquiries/${id}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Email": adminEmail,
+        "X-User-Role": "admin"
+      },
+      body: JSON.stringify({ status: newStatus })
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to update status");
+      return data;
+    }).then((data) => {
+      setInquiries(prev => prev.map(inq => inq._id === id ? { ...inq, status: newStatus } : inq));
+      showToast(`Message marked as ${newStatus}`, 'success');
+      if (selectedInquiry && selectedInquiry._id === id) {
+        setSelectedInquiry(data.inquiry);
+      }
+    }).catch((err) => {
+      showToast(err.message, 'error');
+    });
+  };
+
+  const handleDeleteInquiry = async (id: string) => {
+    fetch(`${API_URL}/admin/inquiries/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Email": adminEmail,
+        "X-User-Role": "admin"
+      }
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to delete inquiry");
+      return data;
+    }).then(() => {
+      setInquiries(prev => prev.filter(inq => inq._id !== id));
+      showToast("Inquiry deleted successfully", 'success');
+      if (selectedInquiry && selectedInquiry._id === id) {
+        setSelectedInquiry(null);
+      }
+    }).catch((err) => {
+      showToast(err.message, 'error');
+    });
+    setDeleteInquiryModal(null);
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value })
@@ -267,6 +389,10 @@ function AdminDashboard() {
 
     if (activeSection === "logs") {
       fetchLogs();
+    }
+
+    if (activeSection === "contact-messages") {
+      fetchInquiries();
     }
   }, [activeSection]);
 
@@ -441,6 +567,13 @@ function AdminDashboard() {
               <History size={18} />
               Activity Logs
             </button>
+            <button
+              className={`nav-item ${activeSection === 'contact-messages' ? 'active' : ''}`}
+              onClick={() => handleNavClick('contact-messages')}
+            >
+              <Mail size={18} />
+              Contact Messages
+            </button>
           </div>
 
           <div className="nav-section">
@@ -482,6 +615,7 @@ function AdminDashboard() {
               {activeSection === 'dashboard' && 'Admin Dashboard'}
               {activeSection === 'clients' && 'Client Management'}
               {activeSection === 'logs' && 'Platform Activity Logs'}
+              {activeSection === 'contact-messages' && 'Contact Us Messages'}
               {activeSection === 'settings' && 'Settings'}
             </h1>
           </div>
@@ -1029,6 +1163,202 @@ function AdminDashboard() {
             </div>
           )}
 
+          {/* Contact Messages Section */}
+          {activeSection === 'contact-messages' && (
+            <div className="table-section">
+              <div className="table-header" style={{ borderBottom: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 className="table-title">Contact Form Messages</h2>
+                <button className="btn btn-outline" onClick={fetchInquiries} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <RotateCw size={14} />
+                  Refresh
+                </button>
+              </div>
+
+              {/* Filters Toolbar */}
+              <div className="filter-toolbar">
+                <div className="filter-group">
+                  <span className="filter-label">Search</span>
+                  <input
+                    type="text"
+                    className="search-input"
+                    placeholder="Search messages..."
+                    value={inquirySearch}
+                    onChange={(e) => {
+                      setInquirySearch(e.target.value);
+                      setInquiryPage(1);
+                    }}
+                    style={{ margin: 0 }}
+                  />
+                </div>
+
+                <div className="filter-group">
+                  <span className="filter-label">Status</span>
+                  <select
+                    className="filter-select"
+                    value={inquiryFilterStatus}
+                    onChange={(e) => {
+                      setInquiryFilterStatus(e.target.value as any);
+                      setInquiryPage(1);
+                    }}
+                  >
+                    <option value="all">All Messages</option>
+                    <option value="unread">Unread</option>
+                    <option value="read">Read</option>
+                  </select>
+                </div>
+
+                <button
+                  className="sort-btn"
+                  onClick={() => setInquirySortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                >
+                  Order: {inquirySortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
+                </button>
+              </div>
+
+              {loadingInquiries ? (
+                <div className="loading-state" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '3rem', gap: '12px' }}>
+                  <RotateCw size={24} className="spinner-icon animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+                  <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>Loading messages...</span>
+                </div>
+              ) : inquiryError ? (
+                <div className="error-state" style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-badge-error-text)', backgroundColor: 'var(--color-badge-error-bg)', borderRadius: '8px' }}>
+                  {inquiryError}
+                </div>
+              ) : paginatedInquiries.length === 0 ? (
+                <div className="empty-state" style={{ padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+                  <Mail size={48} style={{ color: 'var(--color-text-muted)', opacity: 0.5 }} />
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-text)' }}>No Messages Found</h3>
+                  <p style={{ color: 'var(--color-text-muted)', maxWidth: '360px', fontSize: '0.9rem' }}>
+                    When users submit contact inquiries from the homepage, they will appear here.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Email</th>
+                          <th>Phone</th>
+                          <th>Institution</th>
+                          <th>Subject</th>
+                          <th>Message Preview</th>
+                          <th>Date Submitted</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedInquiries.map((inq) => (
+                          <tr
+                            key={inq._id}
+                            className="clickable-row"
+                            style={{ fontWeight: inq.status === 'unread' ? '600' : 'normal' }}
+                            onClick={(e) => {
+                              const target = e.target as HTMLElement;
+                              if (target.closest('.action-btn')) return;
+                              setSelectedInquiry(inq);
+                              if (inq.status === 'unread') {
+                                handleUpdateInquiryStatus(inq._id, 'read');
+                              }
+                            }}
+                          >
+                            <td>{inq.fullName}</td>
+                            <td style={{ color: 'var(--color-text-muted)' }}>{inq.email}</td>
+                            <td style={{ color: 'var(--color-text-muted)' }}>{inq.phone}</td>
+                            <td>{inq.institutionName}</td>
+                            <td style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={inq.subject}>
+                              {inq.subject}
+                            </td>
+                            <td style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--color-text-secondary)' }} title={inq.message}>
+                              {inq.message}
+                            </td>
+                            <td style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                              {new Date(inq.createdAt).toLocaleDateString()} {new Date(inq.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td>
+                              <span className={`badge ${inq.status === 'unread' ? 'badge-error' : 'badge-success'}`} style={{ textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                                {inq.status}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <button
+                                  className="action-btn edit"
+                                  title="View message"
+                                  onClick={() => {
+                                    setSelectedInquiry(inq);
+                                    if (inq.status === 'unread') {
+                                      handleUpdateInquiryStatus(inq._id, 'read');
+                                    }
+                                  }}
+                                >
+                                  <Eye size={14} />
+                                </button>
+                                <button
+                                  className="action-btn"
+                                  style={{ color: 'var(--color-text-secondary)' }}
+                                  title={inq.status === 'unread' ? "Mark as Read" : "Mark as Unread"}
+                                  onClick={() => handleUpdateInquiryStatus(inq._id, inq.status === 'unread' ? 'read' : 'unread')}
+                                >
+                                  {inq.status === 'unread' ? <MailOpen size={14} /> : <Mail size={14} />}
+                                </button>
+                                <button
+                                  className="action-btn delete"
+                                  title="Delete message"
+                                  onClick={() => setDeleteInquiryModal(inq)}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {totalInquiryPages > 1 && (
+                    <div className="pagination-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderTop: '1px solid var(--color-border)' }}>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
+                        Showing {inquiryStartIndex + 1} to {Math.min(inquiryStartIndex + inquiryPerPage, processedInquiries.length)} of {processedInquiries.length} inquiries
+                      </span>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          className="btn btn-outline"
+                          disabled={inquiryPage === 1}
+                          onClick={() => setInquiryPage(prev => Math.max(prev - 1, 1))}
+                          style={{ padding: '4px 12px', fontSize: '0.85rem' }}
+                        >
+                          Previous
+                        </button>
+                        {Array.from({ length: totalInquiryPages }, (_, i) => i + 1).map(p => (
+                          <button
+                            key={p}
+                            className={`btn ${inquiryPage === p ? 'btn-primary' : 'btn-outline'}`}
+                            onClick={() => setInquiryPage(p)}
+                            style={{ padding: '4px 10px', fontSize: '0.85rem' }}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                        <button
+                          className="btn btn-outline"
+                          disabled={inquiryPage === totalInquiryPages}
+                          onClick={() => setInquiryPage(prev => Math.min(prev + 1, totalInquiryPages))}
+                          style={{ padding: '4px 12px', fontSize: '0.85rem' }}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {/* Settings Section */}
           {activeSection === 'settings' && (
             <div className="settings-container">
@@ -1339,6 +1669,129 @@ function AdminDashboard() {
               >
                 Edit Portal
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedInquiry && (
+        <div className="modal-overlay" onClick={() => setSelectedInquiry(null)}>
+          <div className="modal" style={{ maxWidth: '650px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Contact Message Detail</h3>
+              <button className="modal-close" onClick={() => setSelectedInquiry(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+              <div className="detail-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--spacing-sm)' }}>
+                <div className="detail-card">
+                  <div className="detail-label">Sender Name</div>
+                  <div className="detail-value" style={{ fontWeight: 600 }}>{selectedInquiry.fullName}</div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Email Address</div>
+                  <div className="detail-value">
+                    <a href={`mailto:${selectedInquiry.email}`} style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>
+                      {selectedInquiry.email}
+                    </a>
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Phone Number</div>
+                  <div className="detail-value">
+                    <a href={`tel:${selectedInquiry.phone}`} style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>
+                      {selectedInquiry.phone}
+                    </a>
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Institution Name</div>
+                  <div className="detail-value">{selectedInquiry.institutionName}</div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Date Submitted</div>
+                  <div className="detail-value">
+                    {new Date(selectedInquiry.createdAt).toLocaleString()}
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Status</div>
+                  <div className="detail-value">
+                    <span className={`badge ${selectedInquiry.status === 'unread' ? 'badge-error' : 'badge-success'}`}>
+                      {selectedInquiry.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label className="form-label" style={{ fontWeight: 600 }}>Subject</label>
+                <div className="detail-value" style={{ padding: '8px 12px', background: 'var(--color-background)', borderRadius: '4px', border: '1px solid var(--color-border)', fontWeight: 600 }}>
+                  {selectedInquiry.subject}
+                </div>
+              </div>
+
+              <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label className="form-label" style={{ fontWeight: 600 }}>Message</label>
+                <div style={{
+                  padding: '12px 16px',
+                  background: 'var(--color-background)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '6px',
+                  fontSize: '0.95rem',
+                  lineHeight: '1.5',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  color: 'var(--color-text)'
+                }}>
+                  {selectedInquiry.message}
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+              <div>
+                <button
+                  className="btn btn-outline"
+                  onClick={() => {
+                    handleUpdateInquiryStatus(selectedInquiry._id, selectedInquiry.status === 'unread' ? 'read' : 'unread');
+                  }}
+                  style={{ marginRight: '8px' }}
+                >
+                  Mark as {selectedInquiry.status === 'unread' ? 'Read' : 'Unread'}
+                </button>
+                <button
+                  className="btn btn-outline"
+                  style={{ color: 'var(--color-badge-error-text)', borderColor: 'var(--color-badge-error-text)' }}
+                  onClick={() => {
+                    setDeleteInquiryModal(selectedInquiry);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+              <button className="btn btn-primary" onClick={() => setSelectedInquiry(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteInquiryModal && (
+        <div className="modal-overlay" onClick={() => setDeleteInquiryModal(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Delete Contact Message</h3>
+              <button className="modal-close" onClick={() => setDeleteInquiryModal(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              Are you sure you want to delete the message from <strong>{deleteInquiryModal.fullName}</strong> ({deleteInquiryModal.subject})? This action cannot be undone.
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setDeleteInquiryModal(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={() => handleDeleteInquiry(deleteInquiryModal._id)} >Delete Message</button>
             </div>
           </div>
         </div>

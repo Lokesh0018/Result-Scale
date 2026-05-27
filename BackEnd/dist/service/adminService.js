@@ -3,10 +3,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UpdatePassword = exports.GetStudents = exports.DeleteClient = exports.UpdateClient = exports.AddClient = exports.GetDashboard = void 0;
+exports.DeleteInquiry = exports.UpdateInquiryStatus = exports.GetInquiries = exports.UpdatePassword = exports.GetStudents = exports.DeleteClient = exports.UpdateClient = exports.AddClient = exports.GetDashboard = void 0;
 const Admin_1 = __importDefault(require("../models/Admin"));
 const Client_1 = __importDefault(require("../models/Client"));
 const Student_1 = __importDefault(require("../models/Student"));
+const Inquiry_1 = __importDefault(require("../models/Inquiry"));
 const GetDashboard = async () => {
     return await Client_1.default.find().lean();
 };
@@ -73,3 +74,24 @@ const UpdatePassword = async (email, password) => {
     return adminDto;
 };
 exports.UpdatePassword = UpdatePassword;
+const GetInquiries = async () => {
+    return await Inquiry_1.default.find().sort({ createdAt: -1 }).lean();
+};
+exports.GetInquiries = GetInquiries;
+const UpdateInquiryStatus = async (id, status) => {
+    const inquiry = await Inquiry_1.default.findById(id);
+    if (!inquiry)
+        throw new Error("Inquiry not found !");
+    inquiry.status = status;
+    await inquiry.save();
+    return inquiry.toObject();
+};
+exports.UpdateInquiryStatus = UpdateInquiryStatus;
+const DeleteInquiry = async (id) => {
+    const inquiry = await Inquiry_1.default.findById(id);
+    if (!inquiry)
+        throw new Error("Inquiry not found !");
+    await Inquiry_1.default.deleteOne({ _id: id });
+    return inquiry.toObject();
+};
+exports.DeleteInquiry = DeleteInquiry;
