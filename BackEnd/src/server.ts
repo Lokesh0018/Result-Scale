@@ -1,6 +1,11 @@
 import express from "express";
 import dotenv from "dotenv";
-dotenv.config();
+dotenv.config({
+  path:
+    process.env.NODE_ENV === "production"
+      ? ".env.production"
+      : ".env.local",
+});
 import cors from "cors";
 import connectDB from "./config/db";
 import { router as adminRoutes } from "./routes/adminRoutes";
@@ -10,12 +15,12 @@ import { router as contactRoutes } from "./routes/contactRoutes";
 
 const app = express();
 app.use(cors({
-    origin: [
-      "https://resultscale.web.app",
-      "http://localhost:5173",
-    ],
-    credentials: true,
-  }));
+  origin: [
+    "https://resultscale.web.app",
+    "http://localhost:5173",
+  ],
+  credentials: true,
+}));
 app.use(express.json());
 connectDB();
 
