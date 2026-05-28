@@ -18,12 +18,18 @@ const transporter = nodemailer_1.default.createTransport({
     },
 });
 const sendOtp = async (email, otp) => {
-    await transporter.sendMail({
-        from: "munakalalokesh222@gmail.com",
-        to: email,
-        subject: "Your OTP for Login",
-        text: `Your OTP is ${otp}. It is valid for 5 minutes.`,
-    });
+    try {
+        const info = await transporter.sendMail({
+            from: process.env.EMAIL,
+            to: email,
+            subject: "Your OTP for Login",
+            text: `Your OTP is ${otp}. It is valid for 5 minutes.`,
+        });
+    }
+    catch (err) {
+        console.log("MAIL ERROR:", err);
+        throw err;
+    }
 };
 const VerifyStudentLogin = async (email, rollNo) => {
     const student = await Student_1.default.findOne({ email });
@@ -40,7 +46,9 @@ const VerifyStudentLogin = async (email, rollNo) => {
     expiry.setMinutes(expiry.getMinutes() + 5);
     student.otpExpiry = expiry;
     await student.save();
+    console.log("SAved");
     await sendOtp(email, otp);
+    console.log("Sent");
     const { otp: _otp, otpExpiry: _otpExpiry, sgpa: _sgpa, ...studentDto } = student.toObject();
     return studentDto;
 };
