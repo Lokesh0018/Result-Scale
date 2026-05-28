@@ -150,10 +150,6 @@ function AdminLogin() {
               Sign In
             </button>
           </form>
-
-          <p className="auth-footer">
-            Need help? <a href="#">Contact Support</a>
-          </p>
         </div>
       </div>
 
