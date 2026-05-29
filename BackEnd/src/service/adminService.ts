@@ -2,6 +2,7 @@ import Admin from "../models/Admin";
 import Client from "../models/Client";
 import Student from "../models/Student";
 import Inquiry from "../models/Inquiry";
+import QuotationRequest from "../models/QuotationRequest";
 
 export const GetDashboard = async () => {
     return await Client.find().lean();
@@ -96,4 +97,25 @@ export const DeleteInquiry = async (id: string) => {
         throw new Error("Inquiry not found !");
     await Inquiry.deleteOne({ _id: id });
     return inquiry.toObject();
+}
+
+export const GetQuotationRequests = async () => {
+    return await QuotationRequest.find().sort({ createdAt: -1 }).lean();
+}
+
+export const UpdateQuotationRequestStatus = async (id: string, status: 'Pending' | 'Under Review' | 'Contacted' | 'Quotation Sent' | 'Approved' | 'Rejected') => {
+    const request = await QuotationRequest.findById(id);
+    if (!request)
+        throw new Error("Quotation request not found !");
+    request.status = status;
+    await request.save();
+    return request.toObject();
+}
+
+export const DeleteQuotationRequest = async (id: string) => {
+    const request = await QuotationRequest.findById(id);
+    if (!request)
+        throw new Error("Quotation request not found !");
+    await QuotationRequest.deleteOne({ _id: id });
+    return request.toObject();
 }

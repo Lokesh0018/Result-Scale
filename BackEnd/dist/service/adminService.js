@@ -3,11 +3,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DeleteInquiry = exports.UpdateInquiryStatus = exports.GetInquiries = exports.UpdatePassword = exports.GetStudents = exports.DeleteClient = exports.UpdateClient = exports.AddClient = exports.GetDashboard = void 0;
+exports.DeleteQuotationRequest = exports.UpdateQuotationRequestStatus = exports.GetQuotationRequests = exports.DeleteInquiry = exports.UpdateInquiryStatus = exports.GetInquiries = exports.UpdatePassword = exports.GetStudents = exports.DeleteClient = exports.UpdateClient = exports.AddClient = exports.GetDashboard = void 0;
 const Admin_1 = __importDefault(require("../models/Admin"));
 const Client_1 = __importDefault(require("../models/Client"));
 const Student_1 = __importDefault(require("../models/Student"));
 const Inquiry_1 = __importDefault(require("../models/Inquiry"));
+const QuotationRequest_1 = __importDefault(require("../models/QuotationRequest"));
 const GetDashboard = async () => {
     return await Client_1.default.find().lean();
 };
@@ -95,3 +96,24 @@ const DeleteInquiry = async (id) => {
     return inquiry.toObject();
 };
 exports.DeleteInquiry = DeleteInquiry;
+const GetQuotationRequests = async () => {
+    return await QuotationRequest_1.default.find().sort({ createdAt: -1 }).lean();
+};
+exports.GetQuotationRequests = GetQuotationRequests;
+const UpdateQuotationRequestStatus = async (id, status) => {
+    const request = await QuotationRequest_1.default.findById(id);
+    if (!request)
+        throw new Error("Quotation request not found !");
+    request.status = status;
+    await request.save();
+    return request.toObject();
+};
+exports.UpdateQuotationRequestStatus = UpdateQuotationRequestStatus;
+const DeleteQuotationRequest = async (id) => {
+    const request = await QuotationRequest_1.default.findById(id);
+    if (!request)
+        throw new Error("Quotation request not found !");
+    await QuotationRequest_1.default.deleteOne({ _id: id });
+    return request.toObject();
+};
+exports.DeleteQuotationRequest = DeleteQuotationRequest;

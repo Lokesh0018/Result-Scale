@@ -8,3 +8,4 @@ const express_1 = __importDefault(require("express"));
 const contactController_1 = require("../controller/contactController");
 exports.router = express_1.default.Router();
 exports.router.post("/submit", contactController_1.submitInquiry);
+exports.router.post("/quotation-request", contactController_1.submitQuotationRequest);

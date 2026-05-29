@@ -127,6 +127,8 @@
   flex: 1;
   margin-left: 260px;
   background-color: var(--color-background);
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .dashboard-header {
@@ -299,11 +301,12 @@
 .data-table {
   width: 100%;
   border-collapse: collapse;
+  font-size: var(--font-size-sm);
 }
 
 .data-table th,
 .data-table td {
-  padding: var(--spacing-md) var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-md);
   text-align: left;
   border-bottom: 1px solid var(--color-border);
 }
