@@ -6,24 +6,41 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.VerifyOtp = exports.VerifyStudentLogin = void 0;
 const Student_1 = __importDefault(require("../models/Student"));
 const Client_1 = __importDefault(require("../models/Client"));
-const nodemailer_1 = __importDefault(require("nodemailer"));
+const sendOtp = async (email, otp) => {
+    try {
+        const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+            method: "POST",
+            headers: {
+                "accept": "application/json",
+                "api-key": process.env.BREVO_API_KEY,
+                "content-type": "application/json"
+            },
+            body: JSON.stringify({
+                sender: {
+                    email: "munakalalokesh222@gmail.com",
+                    name: "Result Scale"
+                },
+                to: [
+                    { email }
+                ],
+                subject: "Your OTP for Login",
+                textContent: `Your OTP is ${otp}. It is valid for 5 minutes.`
+            })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            console.error("BREVO ERROR:", data);
+            throw new Error(data.message || "Failed to send email");
+        }
+        console.log("EMAIL SENT:", data);
+    }
+    catch (error) {
+        console.error("BREVO ERROR:", error);
+        throw error;
+    }
+};
 const generateOtp = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
-};
-const transporter = nodemailer_1.default.createTransport({
-    service: "gmail",
-    auth: {
-        user: process.env.EMAIL,
-        pass: process.env.EMAIL_PASSWORD,
-    },
-});
-const sendOtp = async (email, otp) => {
-    await transporter.sendMail({
-        from: process.env.EMAIL,
-        to: email,
-        subject: "Your OTP for Login",
-        text: `Your OTP is ${otp}. It is valid for 5 minutes.`,
-    });
 };
 const VerifyStudentLogin = async (email, rollNo) => {
     const student = await Student_1.default.findOne({ email });
