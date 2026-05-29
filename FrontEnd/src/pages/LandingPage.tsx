@@ -229,7 +229,7 @@ function LandingPage() {
           <a href="#about" className="nav-link">About</a>
           <a href="#contact" className="nav-link">Contact</a>
           <a href="#faq" className="nav-link">FAQ</a>
-          <Link to="/admin/login" className="btn btn-primary">Get Started</Link>
+          <Link to="/request-quotation" className="btn btn-primary">Get a Quotation</Link>
         </nav>
       </header>
 
@@ -248,12 +248,12 @@ function LandingPage() {
             with OTP verification and time-based access control.
           </p>
           <div className="hero-buttons">
-            <Link to="/admin/login" className="btn btn-primary btn-lg">
-              Start Free Trial
+            <Link to="/request-quotation" className="btn btn-primary btn-lg">
+              Request a Quotation
               <ChevronRight size={20} />
             </Link>
-            <Link to="/database" className="btn btn-outline btn-lg">
-              View Database Schema
+            <Link to="/admin/login" className="btn btn-outline btn-lg">
+              Sign In
             </Link>
           </div>
           <div className="hero-stats">
@@ -387,89 +387,64 @@ function LandingPage() {
             Choose the plan that fits your institution&apos;s needs
           </p>
         </div>
-        <div className="pricing-grid">
-          <div className="pricing-card">
-            <div className="pricing-name">Starter</div>
-            <div className="pricing-price">$29<span>/month</span></div>
-            <p className="pricing-description">Perfect for small institutions</p>
-            <div className="pricing-features">
-              <div className="pricing-feature">
-                <Check size={16} />
-                <span>Up to 500 students</span>
-              </div>
-              <div className="pricing-feature">
-                <Check size={16} />
-                <span>Email OTP verification</span>
-              </div>
-              <div className="pricing-feature">
-                <Check size={16} />
-                <span>CSV bulk upload</span>
-              </div>
-              <div className="pricing-feature">
-                <Check size={16} />
-                <span>Basic analytics</span>
-              </div>
-            </div>
-            <Link to="/admin/login" className="btn btn-outline pricing-btn">Get Started</Link>
-          </div>
-
+        <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--spacing-xl)', maxWidth: '800px', margin: '0 auto' }}>
           <div className="pricing-card popular">
-            <span className="popular-badge">Most Popular</span>
-            <div className="pricing-name">Professional</div>
-            <div className="pricing-price">$79<span>/month</span></div>
-            <p className="pricing-description">For growing institutions</p>
+            <span className="popular-badge">Pay-As-You-Go</span>
+            <div className="pricing-name">Standard Plan</div>
+            <div className="pricing-price">₹1.50<span>/student/day</span></div>
+            <p className="pricing-description">Perfect for institutions of all sizes. Pay only for the scale and duration you need.</p>
             <div className="pricing-features">
               <div className="pricing-feature">
                 <Check size={16} />
-                <span>Up to 5,000 students</span>
+                <span>Flexible student scale</span>
               </div>
               <div className="pricing-feature">
                 <Check size={16} />
-                <span>SMS + Email OTP</span>
+                <span>Mandatory secure Email OTP</span>
               </div>
               <div className="pricing-feature">
                 <Check size={16} />
-                <span>Advanced analytics</span>
+                <span>CSV result uploads</span>
               </div>
               <div className="pricing-feature">
                 <Check size={16} />
-                <span>Custom branding</span>
+                <span>Student memo PDF downloads</span>
               </div>
               <div className="pricing-feature">
                 <Check size={16} />
-                <span>Priority support</span>
+                <span>Standard dashboard analytics</span>
               </div>
             </div>
-            <Link to="/admin/login" className="btn btn-primary pricing-btn">Get Started</Link>
+            <Link to="/request-quotation" className="btn btn-primary pricing-btn">Request a Quotation</Link>
           </div>
 
           <div className="pricing-card">
-            <div className="pricing-name">Enterprise</div>
-            <div className="pricing-price">$199<span>/month</span></div>
-            <p className="pricing-description">For large universities</p>
+            <div className="pricing-name">Enterprise Plan</div>
+            <div className="pricing-price">Custom<span> pricing</span></div>
+            <p className="pricing-description">For large universities and examination boards requiring dedicated infrastructure.</p>
             <div className="pricing-features">
               <div className="pricing-feature">
                 <Check size={16} />
-                <span>Unlimited students</span>
+                <span>Custom domain & branding</span>
               </div>
               <div className="pricing-feature">
                 <Check size={16} />
-                <span>White-label solution</span>
+                <span>High peak-traffic allocation</span>
               </div>
               <div className="pricing-feature">
                 <Check size={16} />
-                <span>API access</span>
+                <span>API & ERP database sync</span>
               </div>
               <div className="pricing-feature">
                 <Check size={16} />
-                <span>Dedicated support</span>
+                <span>Dedicated account manager</span>
               </div>
               <div className="pricing-feature">
                 <Check size={16} />
-                <span>SLA guarantee</span>
+                <span>SLA uptime guarantees</span>
               </div>
             </div>
-            <Link to="/admin/login" className="btn btn-outline pricing-btn">Contact Sales</Link>
+            <Link to="/request-quotation" className="btn btn-outline pricing-btn">Contact Sales</Link>
           </div>
         </div>
       </section>

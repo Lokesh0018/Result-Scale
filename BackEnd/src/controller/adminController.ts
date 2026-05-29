@@ -1,5 +1,9 @@
 import express, { Request, Response } from "express";
-import { GetDashboard, AddClient, UpdateClient, DeleteClient, GetStudents, UpdatePassword, GetInquiries, UpdateInquiryStatus, DeleteInquiry } from "../service/adminService";
+import { 
+  GetDashboard, AddClient, UpdateClient, DeleteClient, GetStudents, 
+  UpdatePassword, GetInquiries, UpdateInquiryStatus, DeleteInquiry,
+  GetQuotationRequests, UpdateQuotationRequestStatus, DeleteQuotationRequest
+} from "../service/adminService";
 import { GetActivityLogs, LogActivity } from "../service/logService";
 
 export const getDashboard = async (req: Request, res: Response) => {
@@ -260,6 +264,84 @@ export const deleteInquiry = async (req: Request, res: Response) => {
     } catch (err: any) {
         await LogActivity(actorEmail, actorRole, "Inquiry Deletion Failed", "system", `Failed to delete inquiry ID ${id}: ${err.message}`, "failure");
         if (err.message === "Inquiry not found !") {
+            return res.status(404).json({
+                success: false,
+                message: err.message
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: err.message
+        });
+    }
+}
+
+export const getQuotationRequests = async (req: Request, res: Response) => {
+    try {
+        const requests = await GetQuotationRequests();
+        return res.status(200).json({
+            success: true,
+            message: "Quotation requests fetched successfully",
+            requests
+        });
+    } catch (err: any) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            err: err.message
+        });
+    }
+}
+
+export const updateQuotationRequestStatus = async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    const { status } = req.body;
+    const actorEmail = req.headers["x-user-email"] as string || "admin@resultscale.com";
+    const actorRole = req.headers["x-user-role"] as string || "admin";
+    try {
+        if (!status || !['Pending', 'Under Review', 'Contacted', 'Quotation Sent', 'Approved', 'Rejected'].includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: "Valid status ('Pending', 'Under Review', 'Contacted', 'Quotation Sent', 'Approved', or 'Rejected') is required"
+            });
+        }
+        const request = await UpdateQuotationRequestStatus(id, status as any);
+        await LogActivity(actorEmail, actorRole, "Quotation Request Status Updated", "system", `Updated status of quotation request from ${request.institutionName} to ${status}`, "success");
+        return res.status(200).json({
+            success: true,
+            message: "Quotation request status updated successfully",
+            request
+        });
+    } catch (err: any) {
+        await LogActivity(actorEmail, actorRole, "Quotation Request Status Update Failed", "system", `Failed to update status of quotation request ID ${id}: ${err.message}`, "failure");
+        if (err.message === "Quotation request not found !") {
+            return res.status(404).json({
+                success: false,
+                message: err.message
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: err.message
+        });
+    }
+}
+
+export const deleteQuotationRequest = async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    const actorEmail = req.headers["x-user-email"] as string || "admin@resultscale.com";
+    const actorRole = req.headers["x-user-role"] as string || "admin";
+    try {
+        const request = await DeleteQuotationRequest(id);
+        await LogActivity(actorEmail, actorRole, "Quotation Request Deleted", "system", `Deleted quotation request from ${request.institutionName} (${request.email})`, "success");
+        return res.status(200).json({
+            success: true,
+            message: "Quotation request deleted successfully",
+            request
+        });
+    } catch (err: any) {
+        await LogActivity(actorEmail, actorRole, "Quotation Request Deletion Failed", "system", `Failed to delete quotation request ID ${id}: ${err.message}`, "failure");
+        if (err.message === "Quotation request not found !") {
             return res.status(404).json({
                 success: false,
                 message: err.message

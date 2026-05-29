@@ -4,7 +4,7 @@ import {
   BarChart3, LayoutDashboard, Users, Settings, LogOut,
   Bell, Building2, UserCheck, Clock, Menu, X,
   Plus, Pencil, Trash2, Mail, Calendar, Shield, Database, MoonStar, Sun,
-  History, RotateCw, CheckCircle, XCircle, Eye, MailOpen
+  History, RotateCw, CheckCircle, XCircle, Eye, MailOpen, FileText
 } from 'lucide-react'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/dashboard.css'
@@ -91,6 +91,32 @@ function AdminDashboard() {
   const [inquiryPerPage] = useState(5);
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
   const [deleteInquiryModal, setDeleteInquiryModal] = useState<Inquiry | null>(null);
+
+  interface QuotationRequest {
+    _id: string;
+    institutionName: string;
+    contactPerson: string;
+    email: string;
+    phone: string;
+    studentCount: number;
+    accessDurationDays: number;
+    expectedReleaseDate: string;
+    hostingCost: number;
+    otpCost: number;
+    estimatedTotal: number;
+    status: 'Pending' | 'Under Review' | 'Contacted' | 'Quotation Sent' | 'Approved' | 'Rejected';
+    createdAt: string;
+  }
+  const [quotationRequests, setQuotationRequests] = useState<QuotationRequest[]>([]);
+  const [loadingQuotations, setLoadingQuotations] = useState(false);
+  const [quotationsError, setQuotationsError] = useState<string | null>(null);
+  const [quotationSearch, setQuotationSearch] = useState('');
+  const [quotationFilterStatus, setQuotationFilterStatus] = useState<'all' | 'Pending' | 'Under Review' | 'Contacted' | 'Quotation Sent' | 'Approved' | 'Rejected'>('all');
+  const [quotationSortOrder, setQuotationSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [quotationPage, setQuotationPage] = useState(1);
+  const [quotationPerPage] = useState(5);
+  const [selectedQuotation, setSelectedQuotation] = useState<QuotationRequest | null>(null);
+  const [deleteQuotationModal, setDeleteQuotationModal] = useState<QuotationRequest | null>(null);
 
   const [adminEmail, setAdminEmail] = useState(localStorage.getItem("userEmail") || "admin@resultscale.com");
   const [adminPassword, setAdminPassword] = useState("");
@@ -179,6 +205,160 @@ function AdminDashboard() {
   const totalInquiryPages = Math.ceil(processedInquiries.length / inquiryPerPage);
   const inquiryStartIndex = (inquiryPage - 1) * inquiryPerPage;
   const paginatedInquiries = processedInquiries.slice(inquiryStartIndex, inquiryStartIndex + inquiryPerPage);
+
+  const processedQuotations = quotationRequests
+    .filter(req => {
+      const matchesSearch =
+        req.institutionName.toLowerCase().includes(quotationSearch.toLowerCase()) ||
+        req.contactPerson.toLowerCase().includes(quotationSearch.toLowerCase()) ||
+        req.email.toLowerCase().includes(quotationSearch.toLowerCase()) ||
+        req.phone.toLowerCase().includes(quotationSearch.toLowerCase());
+
+      const matchesStatus =
+        quotationFilterStatus === 'all' || req.status === quotationFilterStatus;
+
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.createdAt).getTime();
+      const timeB = new Date(b.createdAt).getTime();
+      return quotationSortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+    });
+
+  const totalQuotationPages = Math.ceil(processedQuotations.length / quotationPerPage);
+  const quotationStartIndex = (quotationPage - 1) * quotationPerPage;
+  const paginatedQuotations = processedQuotations.slice(quotationStartIndex, quotationStartIndex + quotationPerPage);
+
+  const fetchQuotationRequests = () => {
+    setLoadingQuotations(true);
+    setQuotationsError(null);
+    fetch(`${API_URL}/admin/quotation-requests`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Email": adminEmail,
+        "X-User-Role": "admin"
+      }
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to fetch quotation requests");
+      return data;
+    }).then((data) => {
+      const localDataStr = localStorage.getItem('resultscale_quotation_requests');
+      let localList: any[] = [];
+      if (localDataStr) {
+        try {
+          localList = JSON.parse(localDataStr);
+        } catch (e) {
+          localList = [];
+        }
+      }
+      const apiList = data.requests || [];
+      const merged = [...apiList];
+      localList.forEach((localItem: any) => {
+        if (!merged.some(item => item._id === localItem._id)) {
+          merged.push(localItem);
+        }
+      });
+      setQuotationRequests(merged);
+    }).catch((err) => {
+      console.warn('API fetch failed, using local storage fallback:', err.message);
+      const localDataStr = localStorage.getItem('resultscale_quotation_requests');
+      let localList = [];
+      if (localDataStr) {
+        try {
+          localList = JSON.parse(localDataStr);
+        } catch (e) {
+          localList = [];
+        }
+      }
+      setQuotationRequests(localList);
+      setQuotationsError(err.message);
+    }).finally(() => {
+      setLoadingQuotations(false);
+    });
+  };
+
+  const handleUpdateQuotationStatus = async (id: string, newStatus: 'Pending' | 'Under Review' | 'Contacted' | 'Quotation Sent' | 'Approved' | 'Rejected') => {
+    const localDataStr = localStorage.getItem('resultscale_quotation_requests');
+    if (localDataStr) {
+      try {
+        let localList = JSON.parse(localDataStr);
+        localList = localList.map((item: any) => item._id === id ? { ...item, status: newStatus } : item);
+        localStorage.setItem('resultscale_quotation_requests', JSON.stringify(localList));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    fetch(`${API_URL}/admin/quotation-requests/${id}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Email": adminEmail,
+        "X-User-Role": "admin"
+      },
+      body: JSON.stringify({ status: newStatus })
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to update status");
+      return data;
+    }).then((data) => {
+      setQuotationRequests(prev => prev.map(req => req._id === id ? { ...req, status: newStatus } : req));
+      showToast(`Quotation request marked as ${newStatus}`, 'success');
+      if (selectedQuotation && selectedQuotation._id === id) {
+        setSelectedQuotation(data.request || { ...selectedQuotation, status: newStatus });
+      }
+    }).catch((err) => {
+      setQuotationRequests(prev => prev.map(req => req._id === id ? { ...req, status: newStatus } : req));
+      if (selectedQuotation && selectedQuotation._id === id) {
+        setSelectedQuotation(prev => prev ? { ...prev, status: newStatus } : null);
+      }
+      showToast(`Status updated locally (Demo Fallback)`, 'success');
+    });
+  };
+
+  const handleDeleteQuotation = async (id: string) => {
+    const localDataStr = localStorage.getItem('resultscale_quotation_requests');
+    if (localDataStr) {
+      try {
+        let localList = JSON.parse(localDataStr);
+        localList = localList.filter((item: any) => item._id !== id);
+        localStorage.setItem('resultscale_quotation_requests', JSON.stringify(localList));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    fetch(`${API_URL}/admin/quotation-requests/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Email": adminEmail,
+        "X-User-Role": "admin"
+      }
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to delete request");
+      return data;
+    }).then(() => {
+      setQuotationRequests(prev => prev.filter(req => req._id !== id));
+      showToast("Quotation request deleted successfully", 'success');
+      if (selectedQuotation && selectedQuotation._id === id) {
+        setSelectedQuotation(null);
+      }
+    }).catch((err) => {
+      setQuotationRequests(prev => prev.filter(req => req._id !== id));
+      showToast("Quotation request deleted locally (Demo Fallback)", 'success');
+      if (selectedQuotation && selectedQuotation._id === id) {
+        setSelectedQuotation(null);
+      }
+    });
+    setDeleteQuotationModal(null);
+  };
 
   const fetchInquiries = () => {
     setLoadingInquiries(true);
@@ -394,6 +574,10 @@ function AdminDashboard() {
     if (activeSection === "contact-messages") {
       fetchInquiries();
     }
+
+    if (activeSection === "quotation-requests") {
+      fetchQuotationRequests();
+    }
   }, [activeSection]);
 
   const addOrUpdateClient = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -574,6 +758,13 @@ function AdminDashboard() {
               <Mail size={18} />
               Contact Messages
             </button>
+            <button
+              className={`nav-item ${activeSection === 'quotation-requests' ? 'active' : ''}`}
+              onClick={() => handleNavClick('quotation-requests')}
+            >
+              <FileText size={18} />
+              Quotation Requests
+            </button>
           </div>
 
           <div className="nav-section">
@@ -616,6 +807,7 @@ function AdminDashboard() {
               {activeSection === 'clients' && 'Client Management'}
               {activeSection === 'logs' && 'Platform Activity Logs'}
               {activeSection === 'contact-messages' && 'Contact Us Messages'}
+              {activeSection === 'quotation-requests' && 'Quotation Requests'}
               {activeSection === 'settings' && 'Settings'}
             </h1>
           </div>
@@ -1357,6 +1549,225 @@ function AdminDashboard() {
             </div>
           )}
 
+          {activeSection === 'quotation-requests' && (
+            <div className="table-section" style={{ overflowX: 'auto' }}>
+              <div className="table-header" style={{ borderBottom: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 className="table-title">Quotation Requests</h2>
+                <button className="btn btn-outline" onClick={fetchQuotationRequests} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <RotateCw size={14} />
+                  Refresh
+                </button>
+              </div>
+
+              {/* Filters Toolbar */}
+              <div className="filter-toolbar">
+                <div className="filter-group">
+                  <span className="filter-label">Search</span>
+                  <input
+                    type="text"
+                    className="search-input"
+                    placeholder="Search requests..."
+                    value={quotationSearch}
+                    onChange={(e) => {
+                      setQuotationSearch(e.target.value);
+                      setQuotationPage(1);
+                    }}
+                    style={{ margin: 0 }}
+                  />
+                </div>
+
+                <div className="filter-group">
+                  <span className="filter-label">Status</span>
+                  <select
+                    className="filter-select"
+                    value={quotationFilterStatus}
+                    onChange={(e) => {
+                      setQuotationFilterStatus(e.target.value as any);
+                      setQuotationPage(1);
+                    }}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Under Review">Under Review</option>
+                    <option value="Contacted">Contacted</option>
+                    <option value="Quotation Sent">Quotation Sent</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                  </select>
+                </div>
+
+                <button
+                  className="sort-btn"
+                  onClick={() => setQuotationSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                >
+                  Order: {quotationSortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
+                </button>
+              </div>
+
+              {loadingQuotations ? (
+                <div className="loading-state" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '3rem', gap: '12px' }}>
+                  <RotateCw size={24} className="spinner-icon animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+                  <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>Loading requests...</span>
+                </div>
+              ) : quotationsError && quotationRequests.length === 0 ? (
+                <div className="error-state" style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-badge-error-text)', backgroundColor: 'var(--color-badge-error-bg)', borderRadius: '8px' }}>
+                  {quotationsError}
+                </div>
+              ) : processedQuotations.length === 0 ? (
+                <div className="empty-state" style={{ padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+                  <FileText size={48} style={{ color: 'var(--color-text-muted)', opacity: 0.5 }} />
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-text)' }}>No Requests Found</h3>
+                  <p style={{ color: 'var(--color-text-muted)', maxWidth: '360px', fontSize: '0.9rem' }}>
+                    When clients request result hosting estimations, their entries will show up here.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Institution</th>
+                        <th>Contact Person</th>
+                        <th>Email</th>
+                        <th>Phone Number</th>
+                        <th>Students</th>
+                        <th>Duration (Days)</th>
+                        <th>Hosting Cost</th>
+                        <th>OTP Cost</th>
+                        <th>Estimated Total</th>
+                        <th>Status</th>
+                        <th>Created Date</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedQuotations.map((req) => (
+                        <tr
+                          key={req._id}
+                          className="clickable-row"
+                          onClick={(e) => {
+                            const target = e.target as HTMLElement;
+                            if (target.closest('.action-btn')) return;
+                            setSelectedQuotation(req);
+                          }}
+                        >
+                          <td style={{ fontWeight: 500 }}>{req.institutionName}</td>
+                          <td>{req.contactPerson}</td>
+                          <td style={{ color: 'var(--color-text-muted)' }}>{req.email}</td>
+                          <td style={{ color: 'var(--color-text-muted)' }}>{req.phone}</td>
+                          <td>{(req.studentCount || 0).toLocaleString('en-IN')}</td>
+                          <td>{req.accessDurationDays} Days</td>
+                          <td style={{ fontWeight: 600 }}>₹{(req.hostingCost || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td style={{ color: 'var(--color-text-muted)' }}>₹{(req.otpCost || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td style={{ fontWeight: 700, color: 'var(--color-text)' }}>₹{(req.estimatedTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td>
+                            {(() => {
+                              let bgColor = '#FEF3C7';
+                              let color = '#D97706';
+                              let borderColor = '#FDE68A';
+                              switch (req.status) {
+                                case 'Under Review':
+                                  bgColor = '#EFF6FF'; color = '#2563EB'; borderColor = '#DBEAFE'; break;
+                                case 'Contacted':
+                                  bgColor = '#EEF2FF'; color = '#4F46E5'; borderColor = '#E0E7FF'; break;
+                                case 'Quotation Sent':
+                                  bgColor = '#F0FDFA'; color = '#0D9488'; borderColor = '#CCFBF1'; break;
+                                case 'Approved':
+                                  bgColor = '#ECFDF5'; color = '#059669'; borderColor = '#D1FAE5'; break;
+                                case 'Rejected':
+                                  bgColor = '#FEF2F2'; color = '#DC2626'; borderColor = '#FEE2E2'; break;
+                              }
+                              return (
+                                <span className="badge" style={{
+                                  backgroundColor: bgColor,
+                                  color: color,
+                                  border: `1px solid ${borderColor}`,
+                                  textTransform: 'capitalize',
+                                  fontSize: '0.75rem',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  fontWeight: 600,
+                                  display: 'inline-block'
+                                }}>
+                                  {req.status}
+                                </span>
+                              );
+                            })()}
+                          </td>
+                          <td style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                            {new Date(req.createdAt).toLocaleDateString()} {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button
+                                className="action-btn edit"
+                                title="View Details"
+                                onClick={() => setSelectedQuotation(req)}
+                              >
+                                <Eye size={14} />
+                              </button>
+                              <a
+                                href={`mailto:${req.email}`}
+                                className="action-btn"
+                                style={{ color: '#EF4444', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Contact Client"
+                              >
+                                <Mail size={14} />
+                              </a>
+                              <button
+                                className="action-btn delete"
+                                title="Delete request"
+                                onClick={() => setDeleteQuotationModal(req)}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {totalQuotationPages > 1 && (
+                    <div className="pagination-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderTop: '1px solid var(--color-border)' }}>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
+                        Showing {quotationStartIndex + 1} to {Math.min(quotationStartIndex + quotationPerPage, processedQuotations.length)} of {processedQuotations.length} requests
+                      </span>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          className="btn btn-outline"
+                          disabled={quotationPage === 1}
+                          onClick={() => setQuotationPage(prev => Math.max(prev - 1, 1))}
+                          style={{ padding: '4px 12px', fontSize: '0.85rem' }}
+                        >
+                          Previous
+                        </button>
+                        {Array.from({ length: totalQuotationPages }, (_, i) => i + 1).map(p => (
+                          <button
+                            key={p}
+                            className={`btn ${quotationPage === p ? 'btn-primary' : 'btn-outline'}`}
+                            onClick={() => setQuotationPage(p)}
+                            style={{ padding: '4px 10px', fontSize: '0.85rem' }}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                        <button
+                          className="btn btn-outline"
+                          disabled={quotationPage === totalQuotationPages}
+                          onClick={() => setQuotationPage(prev => Math.min(prev + 1, totalQuotationPages))}
+                          style={{ padding: '4px 12px', fontSize: '0.85rem' }}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Settings Section */}
           {activeSection === 'settings' && (
             <div className="settings-container">
@@ -1788,6 +2199,197 @@ function AdminDashboard() {
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setDeleteInquiryModal(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={() => handleDeleteInquiry(deleteInquiryModal._id)} >Delete Message</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedQuotation && (
+        <div className="modal-overlay" onClick={() => setSelectedQuotation(null)}>
+          <div className="modal" style={{ maxWidth: '650px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Quotation Request Detail</h3>
+              <button className="modal-close" onClick={() => setSelectedQuotation(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+              <div className="detail-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--spacing-sm)' }}>
+                <div className="detail-card">
+                  <div className="detail-label">Institution Name</div>
+                  <div className="detail-value" style={{ fontWeight: 600 }}>{selectedQuotation.institutionName}</div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Contact Person</div>
+                  <div className="detail-value" style={{ fontWeight: 600 }}>{selectedQuotation.contactPerson}</div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Email Address</div>
+                  <div className="detail-value">
+                    <a href={`mailto:${selectedQuotation.email}`} style={{ color: '#EF4444', textDecoration: 'none', fontWeight: 600 }}>
+                      {selectedQuotation.email}
+                    </a>
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Phone Number</div>
+                  <div className="detail-value">
+                    <a href={`tel:${selectedQuotation.phone}`} style={{ color: '#EF4444', textDecoration: 'none', fontWeight: 600 }}>
+                      {selectedQuotation.phone}
+                    </a>
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Students Scale</div>
+                  <div className="detail-value" style={{ fontWeight: 700 }}>
+                    {(selectedQuotation.studentCount || 0).toLocaleString('en-IN')} students
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Access Duration</div>
+                  <div className="detail-value">
+                    {selectedQuotation.accessDurationDays} Days
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Hosting Cost</div>
+                  <div className="detail-value" style={{ fontWeight: 600 }}>
+                    ₹{(selectedQuotation.hostingCost || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">OTP Cost</div>
+                  <div className="detail-value" style={{ color: 'var(--color-text-muted)' }}>
+                    ₹{(selectedQuotation.otpCost || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Estimated Total</div>
+                  <div className="detail-value" style={{ fontWeight: 800, color: '#EF4444' }}>
+                    ₹{(selectedQuotation.estimatedTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">OTP Verification Required?</div>
+                  <div className="detail-value" style={{ fontWeight: 600 }}>
+                    {selectedQuotation.otpRequired !== false ? 'Yes' : 'No'}
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Marks Memo Downloads?</div>
+                  <div className="detail-value" style={{ fontWeight: 600 }}>
+                    {selectedQuotation.marksMemoRequired !== false ? 'Yes' : 'No'}
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Status</div>
+                  <div className="detail-value">
+                    {(() => {
+                      let bgColor = '#FEF3C7';
+                      let color = '#D97706';
+                      let borderColor = '#FDE68A';
+                      switch (selectedQuotation.status) {
+                        case 'Under Review':
+                          bgColor = '#EFF6FF'; color = '#2563EB'; borderColor = '#DBEAFE'; break;
+                        case 'Contacted':
+                          bgColor = '#EEF2FF'; color = '#4F46E5'; borderColor = '#E0E7FF'; break;
+                        case 'Quotation Sent':
+                          bgColor = '#F0FDFA'; color = '#0D9488'; borderColor = '#CCFBF1'; break;
+                        case 'Approved':
+                          bgColor = '#ECFDF5'; color = '#059669'; borderColor = '#D1FAE5'; break;
+                        case 'Rejected':
+                          bgColor = '#FEF2F2'; color = '#DC2626'; borderColor = '#FEE2E2'; break;
+                      }
+                      return (
+                        <span className="badge" style={{
+                          backgroundColor: bgColor,
+                          color: color,
+                          border: `1px solid ${borderColor}`,
+                          textTransform: 'capitalize',
+                          fontSize: '0.75rem',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontWeight: 600,
+                          display: 'inline-block'
+                        }}>
+                          {selectedQuotation.status}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Submitted On</div>
+                  <div className="detail-value">
+                    {new Date(selectedQuotation.createdAt).toLocaleString()}
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Expected Release Date</div>
+                  <div className="detail-value">
+                    {selectedQuotation.expectedReleaseDate ? new Date(selectedQuotation.expectedReleaseDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Change Status:</span>
+                  <select
+                    className="filter-select"
+                    value={selectedQuotation.status}
+                    onChange={(e) => handleUpdateQuotationStatus(selectedQuotation._id, e.target.value as any)}
+                    style={{ padding: '4px 8px', fontSize: '0.85rem', margin: 0 }}
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="Under Review">Under Review</option>
+                    <option value="Contacted">Contacted</option>
+                    <option value="Quotation Sent">Quotation Sent</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <a
+                  href={`mailto:${selectedQuotation.email}`}
+                  className="btn btn-primary"
+                  style={{ backgroundColor: '#EF4444', borderColor: '#EF4444', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Mail size={16} />
+                  Contact Client
+                </a>
+                <button
+                  className="btn btn-outline"
+                  style={{ color: '#EF4444', borderColor: '#EF4444' }}
+                  onClick={() => {
+                    setDeleteQuotationModal(selectedQuotation);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteQuotationModal && (
+        <div className="modal-overlay" onClick={() => setDeleteQuotationModal(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Delete Quotation Request</h3>
+              <button className="modal-close" onClick={() => setDeleteQuotationModal(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              Are you sure you want to delete the quotation request from <strong>{deleteQuotationModal.institutionName}</strong>? This action cannot be undone.
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setDeleteQuotationModal(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={() => handleDeleteQuotation(deleteQuotationModal._id)} >Delete Request</button>
             </div>
           </div>
         </div>
