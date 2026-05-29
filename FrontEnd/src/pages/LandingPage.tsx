@@ -214,12 +214,12 @@ function LandingPage() {
     <div className="landing-page">
       {/* Header */}
       <header className="landing-header">
-        <Link to="/" className="logo">
+        <a href="#home" className="logo">
           <div className="logo-icon">
             <BarChart3 size={20} />
           </div>
           ResultScale
-        </Link>
+        </a>
         <nav className="header-nav">
           <button onClick={toggleTheme} className="nav-link">
             {theme === "light" ? <MoonStar /> : <Sun />}
@@ -234,7 +234,7 @@ function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="hero-section">
+      <section className="hero-section" id='home'>
         <div className="hero-left">
           <div className="hero-badge">
             <Shield size={16} />
