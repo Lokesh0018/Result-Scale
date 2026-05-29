@@ -229,7 +229,7 @@ function LandingPage() {
           <a href="#about" className="nav-link">About</a>
           <a href="#contact" className="nav-link">Contact</a>
           <a href="#faq" className="nav-link">FAQ</a>
-          <Link to="/admin/login" className="btn btn-primary">Get Started</Link>
+          <Link to="/request-quotation" className="btn btn-primary">Get a Quotation</Link>
         </nav>
       </header>
 
@@ -248,12 +248,12 @@ function LandingPage() {
             with OTP verification and time-based access control.
           </p>
           <div className="hero-buttons">
-            <Link to="/admin/login" className="btn btn-primary btn-lg">
-              Start Free Trial
+            <Link to="/request-quotation" className="btn btn-primary btn-lg">
+              Request a Quotation
               <ChevronRight size={20} />
             </Link>
-            <Link to="/database" className="btn btn-outline btn-lg">
-              View Database Schema
+            <Link to="/admin/login" className="btn btn-outline btn-lg">
+              Sign In
             </Link>
           </div>
           <div className="hero-stats">

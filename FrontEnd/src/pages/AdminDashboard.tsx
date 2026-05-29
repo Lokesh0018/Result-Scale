@@ -4,7 +4,7 @@ import {
   BarChart3, LayoutDashboard, Users, Settings, LogOut,
   Bell, Building2, UserCheck, Clock, Menu, X,
   Plus, Pencil, Trash2, Mail, Calendar, Shield, Database, MoonStar, Sun,
-  History, RotateCw, CheckCircle, XCircle, Eye, MailOpen
+  History, RotateCw, CheckCircle, XCircle, Eye, MailOpen, FileText
 } from 'lucide-react'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/dashboard.css'
@@ -91,6 +91,36 @@ function AdminDashboard() {
   const [inquiryPerPage] = useState(5);
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
   const [deleteInquiryModal, setDeleteInquiryModal] = useState<Inquiry | null>(null);
+
+  interface QuotationRequest {
+    _id: string;
+    institutionName: string;
+    institutionType: string;
+    contactPerson: string;
+    email: string;
+    phone: string;
+    cityState: string;
+    studentCount: number;
+    expectedReleaseDate: string;
+    accessDuration: string;
+    customDurationDays: number;
+    expectedTraffic: string;
+    otpRequired: boolean;
+    memoDownloadRequired: boolean;
+    message: string;
+    status: 'unread' | 'read' | 'contacted';
+    createdAt: string;
+  }
+  const [quotationRequests, setQuotationRequests] = useState<QuotationRequest[]>([]);
+  const [loadingQuotations, setLoadingQuotations] = useState(false);
+  const [quotationsError, setQuotationsError] = useState<string | null>(null);
+  const [quotationSearch, setQuotationSearch] = useState('');
+  const [quotationFilterStatus, setQuotationFilterStatus] = useState<'all' | 'unread' | 'read' | 'contacted'>('all');
+  const [quotationSortOrder, setQuotationSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [quotationPage, setQuotationPage] = useState(1);
+  const [quotationPerPage] = useState(5);
+  const [selectedQuotation, setSelectedQuotation] = useState<QuotationRequest | null>(null);
+  const [deleteQuotationModal, setDeleteQuotationModal] = useState<QuotationRequest | null>(null);
 
   const [adminEmail, setAdminEmail] = useState(localStorage.getItem("userEmail") || "admin@resultscale.com");
   const [adminPassword, setAdminPassword] = useState("");
@@ -179,6 +209,162 @@ function AdminDashboard() {
   const totalInquiryPages = Math.ceil(processedInquiries.length / inquiryPerPage);
   const inquiryStartIndex = (inquiryPage - 1) * inquiryPerPage;
   const paginatedInquiries = processedInquiries.slice(inquiryStartIndex, inquiryStartIndex + inquiryPerPage);
+
+  const processedQuotations = quotationRequests
+    .filter(req => {
+      const matchesSearch =
+        req.institutionName.toLowerCase().includes(quotationSearch.toLowerCase()) ||
+        req.contactPerson.toLowerCase().includes(quotationSearch.toLowerCase()) ||
+        req.email.toLowerCase().includes(quotationSearch.toLowerCase()) ||
+        req.phone.toLowerCase().includes(quotationSearch.toLowerCase()) ||
+        req.cityState.toLowerCase().includes(quotationSearch.toLowerCase()) ||
+        (req.message && req.message.toLowerCase().includes(quotationSearch.toLowerCase()));
+
+      const matchesStatus =
+        quotationFilterStatus === 'all' || req.status === quotationFilterStatus;
+
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.createdAt).getTime();
+      const timeB = new Date(b.createdAt).getTime();
+      return quotationSortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+    });
+
+  const totalQuotationPages = Math.ceil(processedQuotations.length / quotationPerPage);
+  const quotationStartIndex = (quotationPage - 1) * quotationPerPage;
+  const paginatedQuotations = processedQuotations.slice(quotationStartIndex, quotationStartIndex + quotationPerPage);
+
+  const fetchQuotationRequests = () => {
+    setLoadingQuotations(true);
+    setQuotationsError(null);
+    fetch(`${API_URL}/admin/quotation-requests`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Email": adminEmail,
+        "X-User-Role": "admin"
+      }
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to fetch quotation requests");
+      return data;
+    }).then((data) => {
+      const localDataStr = localStorage.getItem('resultscale_quotation_requests');
+      let localList: any[] = [];
+      if (localDataStr) {
+        try {
+          localList = JSON.parse(localDataStr);
+        } catch (e) {
+          localList = [];
+        }
+      }
+      const apiList = data.requests || [];
+      const merged = [...apiList];
+      localList.forEach((localItem: any) => {
+        if (!merged.some(item => item._id === localItem._id)) {
+          merged.push(localItem);
+        }
+      });
+      setQuotationRequests(merged);
+    }).catch((err) => {
+      console.warn('API fetch failed, using local storage fallback:', err.message);
+      const localDataStr = localStorage.getItem('resultscale_quotation_requests');
+      let localList = [];
+      if (localDataStr) {
+        try {
+          localList = JSON.parse(localDataStr);
+        } catch (e) {
+          localList = [];
+        }
+      }
+      setQuotationRequests(localList);
+      setQuotationsError(err.message);
+    }).finally(() => {
+      setLoadingQuotations(false);
+    });
+  };
+
+  const handleUpdateQuotationStatus = async (id: string, newStatus: 'unread' | 'read' | 'contacted') => {
+    const localDataStr = localStorage.getItem('resultscale_quotation_requests');
+    if (localDataStr) {
+      try {
+        let localList = JSON.parse(localDataStr);
+        localList = localList.map((item: any) => item._id === id ? { ...item, status: newStatus } : item);
+        localStorage.setItem('resultscale_quotation_requests', JSON.stringify(localList));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    fetch(`${API_URL}/admin/quotation-requests/${id}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Email": adminEmail,
+        "X-User-Role": "admin"
+      },
+      body: JSON.stringify({ status: newStatus })
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to update status");
+      return data;
+    }).then((data) => {
+      setQuotationRequests(prev => prev.map(req => req._id === id ? { ...req, status: newStatus } : req));
+      showToast(`Quotation request marked as ${newStatus}`, 'success');
+      if (selectedQuotation && selectedQuotation._id === id) {
+        setSelectedQuotation(data.request || { ...selectedQuotation, status: newStatus });
+      }
+    }).catch((err) => {
+      setQuotationRequests(prev => prev.map(req => req._id === id ? { ...req, status: newStatus } : req));
+      if (selectedQuotation && selectedQuotation._id === id) {
+        setSelectedQuotation(prev => prev ? { ...prev, status: newStatus } : null);
+      }
+      showToast(`Status updated locally (Demo Fallback)`, 'success');
+    });
+  };
+
+  const handleDeleteQuotation = async (id: string) => {
+    const localDataStr = localStorage.getItem('resultscale_quotation_requests');
+    if (localDataStr) {
+      try {
+        let localList = JSON.parse(localDataStr);
+        localList = localList.filter((item: any) => item._id !== id);
+        localStorage.setItem('resultscale_quotation_requests', JSON.stringify(localList));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    fetch(`${API_URL}/admin/quotation-requests/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Email": adminEmail,
+        "X-User-Role": "admin"
+      }
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to delete request");
+      return data;
+    }).then(() => {
+      setQuotationRequests(prev => prev.filter(req => req._id !== id));
+      showToast("Quotation request deleted successfully", 'success');
+      if (selectedQuotation && selectedQuotation._id === id) {
+        setSelectedQuotation(null);
+      }
+    }).catch((err) => {
+      setQuotationRequests(prev => prev.filter(req => req._id !== id));
+      showToast("Quotation request deleted locally (Demo Fallback)", 'success');
+      if (selectedQuotation && selectedQuotation._id === id) {
+        setSelectedQuotation(null);
+      }
+    });
+    setDeleteQuotationModal(null);
+  };
 
   const fetchInquiries = () => {
     setLoadingInquiries(true);
@@ -394,6 +580,10 @@ function AdminDashboard() {
     if (activeSection === "contact-messages") {
       fetchInquiries();
     }
+
+    if (activeSection === "quotation-requests") {
+      fetchQuotationRequests();
+    }
   }, [activeSection]);
 
   const addOrUpdateClient = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -574,6 +764,13 @@ function AdminDashboard() {
               <Mail size={18} />
               Contact Messages
             </button>
+            <button
+              className={`nav-item ${activeSection === 'quotation-requests' ? 'active' : ''}`}
+              onClick={() => handleNavClick('quotation-requests')}
+            >
+              <FileText size={18} />
+              Quotation Requests
+            </button>
           </div>
 
           <div className="nav-section">
@@ -616,6 +813,7 @@ function AdminDashboard() {
               {activeSection === 'clients' && 'Client Management'}
               {activeSection === 'logs' && 'Platform Activity Logs'}
               {activeSection === 'contact-messages' && 'Contact Us Messages'}
+              {activeSection === 'quotation-requests' && 'Quotation Requests'}
               {activeSection === 'settings' && 'Settings'}
             </h1>
           </div>
@@ -1357,6 +1555,191 @@ function AdminDashboard() {
             </div>
           )}
 
+          {activeSection === 'quotation-requests' && (
+            <div className="inquiry-container">
+              <div className="inquiry-header-actions" style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Search requests..."
+                    value={quotationSearch}
+                    onChange={(e) => {
+                      setQuotationSearch(e.target.value);
+                      setQuotationPage(1);
+                    }}
+                    style={{ width: '280px' }}
+                  />
+                  <div className="filter-badge-list" style={{ display: 'flex', gap: '6px' }}>
+                    {(['all', 'unread', 'read', 'contacted'] as const).map((st) => (
+                      <button
+                        key={st}
+                        className={`filter-badge-btn ${quotationFilterStatus === st ? 'active' : ''}`}
+                        onClick={() => {
+                          setQuotationFilterStatus(st);
+                          setQuotationPage(1);
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '20px',
+                          border: '1px solid var(--color-border)',
+                          background: quotationFilterStatus === st ? '#EF4444' : 'var(--color-white)',
+                          color: quotationFilterStatus === st ? 'white' : 'var(--color-text)',
+                          fontWeight: 500,
+                          fontSize: '0.85rem',
+                          cursor: 'pointer',
+                          textTransform: 'capitalize'
+                        }}
+                      >
+                        {st}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <button
+                    className="btn btn-outline btn-icon"
+                    onClick={() => {
+                      setQuotationSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+                    }}
+                  >
+                    Date: {quotationSortOrder === 'desc' ? 'Newest' : 'Oldest'}
+                  </button>
+                </div>
+              </div>
+
+              {loadingQuotations ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
+                  <RotateCw className="animate-spin" size={24} />
+                </div>
+              ) : quotationsError && quotationRequests.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
+                  Error fetching requests: {quotationsError}
+                </div>
+              ) : processedQuotations.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)', background: 'var(--color-white)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
+                  No quotation requests found.
+                </div>
+              ) : (
+                <div className="table-responsive" style={{ background: 'var(--color-white)', borderRadius: '8px', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
+                  <table className="clients-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th>Institution</th>
+                        <th>Type</th>
+                        <th>Scale</th>
+                        <th>Duration</th>
+                        <th>Release Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedQuotations.map((req) => (
+                        <tr key={req._id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                          <td style={{ padding: '12px 16px' }}>
+                            <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>{req.institutionName}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Contact: {req.contactPerson}</div>
+                          </td>
+                          <td style={{ padding: '12px 16px', color: 'var(--color-text)' }}>{req.institutionType}</td>
+                          <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--color-text)' }}>
+                            {req.studentCount.toLocaleString('en-IN')} students
+                          </td>
+                          <td style={{ padding: '12px 16px', color: 'var(--color-text)' }}>
+                            {req.accessDuration === 'Custom' ? `${req.customDurationDays} Days` : req.accessDuration}
+                          </td>
+                          <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>
+                            {req.expectedReleaseDate ? new Date(req.expectedReleaseDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <span className={`badge ${
+                              req.status === 'unread' ? 'badge-error' :
+                              req.status === 'read' ? 'badge-primary' : 'badge-success'
+                            }`} style={{
+                              backgroundColor: req.status === 'unread' ? '#FEF2F2' : req.status === 'read' ? '#EFF6FF' : '#ECFDF5',
+                              color: req.status === 'unread' ? '#EF4444' : req.status === 'read' ? '#3B82F6' : '#10B981',
+                              border: `1px solid ${req.status === 'unread' ? '#FEE2E2' : req.status === 'read' ? '#DBEAFE' : '#D1FAE5'}`
+                            }}>
+                              {req.status}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                className="action-btn view"
+                                title="View details"
+                                onClick={() => {
+                                  setSelectedQuotation(req);
+                                  if (req.status === 'unread') {
+                                    handleUpdateQuotationStatus(req._id, 'read');
+                                  }
+                                }}
+                              >
+                                <Eye size={14} />
+                              </button>
+                              <button
+                                className="action-btn edit"
+                                style={{ color: '#10B981' }}
+                                title="Mark as Contacted"
+                                disabled={req.status === 'contacted'}
+                                onClick={() => handleUpdateQuotationStatus(req._id, 'contacted')}
+                              >
+                                <CheckCircle size={14} />
+                              </button>
+                              <button
+                                className="action-btn delete"
+                                title="Delete request"
+                                onClick={() => setDeleteQuotationModal(req)}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {totalQuotationPages > 1 && (
+                    <div className="pagination-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderTop: '1px solid var(--color-border)' }}>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
+                        Showing {quotationStartIndex + 1} to {Math.min(quotationStartIndex + quotationPerPage, processedQuotations.length)} of {processedQuotations.length} requests
+                      </span>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          className="btn btn-outline"
+                          disabled={quotationPage === 1}
+                          onClick={() => setQuotationPage(prev => Math.max(prev - 1, 1))}
+                          style={{ padding: '4px 12px', fontSize: '0.85rem' }}
+                        >
+                          Previous
+                        </button>
+                        {Array.from({ length: totalQuotationPages }, (_, i) => i + 1).map(p => (
+                          <button
+                            key={p}
+                            className={`btn ${quotationPage === p ? 'btn-primary' : 'btn-outline'}`}
+                            onClick={() => setQuotationPage(p)}
+                            style={{ padding: '4px 10px', fontSize: '0.85rem' }}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                        <button
+                          className="btn btn-outline"
+                          disabled={quotationPage === totalQuotationPages}
+                          onClick={() => setQuotationPage(prev => Math.min(prev + 1, totalQuotationPages))}
+                          style={{ padding: '4px 12px', fontSize: '0.85rem' }}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Settings Section */}
           {activeSection === 'settings' && (
             <div className="settings-container">
@@ -1788,6 +2171,196 @@ function AdminDashboard() {
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setDeleteInquiryModal(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={() => handleDeleteInquiry(deleteInquiryModal._id)} >Delete Message</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedQuotation && (
+        <div className="modal-overlay" onClick={() => setSelectedQuotation(null)}>
+          <div className="modal" style={{ maxWidth: '650px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Quotation Request Detail</h3>
+              <button className="modal-close" onClick={() => setSelectedQuotation(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+              <div className="detail-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--spacing-sm)' }}>
+                <div className="detail-card">
+                  <div className="detail-label">Institution Name</div>
+                  <div className="detail-value" style={{ fontWeight: 600 }}>{selectedQuotation.institutionName}</div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Institution Type</div>
+                  <div className="detail-value">{selectedQuotation.institutionType}</div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Contact Person</div>
+                  <div className="detail-value" style={{ fontWeight: 600 }}>{selectedQuotation.contactPerson}</div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Email Address</div>
+                  <div className="detail-value">
+                    <a href={`mailto:${selectedQuotation.email}`} style={{ color: '#EF4444', textDecoration: 'none', fontWeight: 600 }}>
+                      {selectedQuotation.email}
+                    </a>
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Phone Number</div>
+                  <div className="detail-value">
+                    <a href={`tel:${selectedQuotation.phone}`} style={{ color: '#EF4444', textDecoration: 'none', fontWeight: 600 }}>
+                      {selectedQuotation.phone}
+                    </a>
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Location (City, State)</div>
+                  <div className="detail-value">{selectedQuotation.cityState}</div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Scale (Students)</div>
+                  <div className="detail-value" style={{ fontWeight: 700 }}>
+                    {selectedQuotation.studentCount.toLocaleString('en-IN')} students
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Access Duration</div>
+                  <div className="detail-value">
+                    {selectedQuotation.accessDuration === 'Custom' ? `${selectedQuotation.customDurationDays} Days` : selectedQuotation.accessDuration}
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Expected Traffic</div>
+                  <div className="detail-value">
+                    <span style={{
+                      fontWeight: 600,
+                      color: selectedQuotation.expectedTraffic === 'High' ? '#EF4444' : selectedQuotation.expectedTraffic === 'Medium' ? '#F59E0B' : '#10B981'
+                    }}>
+                      {selectedQuotation.expectedTraffic} Traffic
+                    </span>
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Expected Release Date</div>
+                  <div className="detail-value">
+                    {selectedQuotation.expectedReleaseDate ? new Date(selectedQuotation.expectedReleaseDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
+                  </div>
+                </div>
+                <div className="detail-card" style={{ gridColumn: 'span 2' }}>
+                  <div className="detail-label">Security & Transcripts Features</div>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                    <span className={`badge`} style={{
+                      backgroundColor: selectedQuotation.otpRequired ? '#EFF6FF' : 'var(--color-background)',
+                      color: selectedQuotation.otpRequired ? '#3B82F6' : 'var(--color-text-muted)',
+                      border: '1px solid var(--color-border)'
+                    }}>
+                      OTP Login: {selectedQuotation.otpRequired ? 'Yes' : 'No'}
+                    </span>
+                    <span className={`badge`} style={{
+                      backgroundColor: selectedQuotation.memoDownloadRequired ? '#ECFDF5' : 'var(--color-background)',
+                      color: selectedQuotation.memoDownloadRequired ? '#10B981' : 'var(--color-text-muted)',
+                      border: '1px solid var(--color-border)'
+                    }}>
+                      Memo PDF: {selectedQuotation.memoDownloadRequired ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Status</div>
+                  <div className="detail-value">
+                    <span className={`badge ${
+                      selectedQuotation.status === 'unread' ? 'badge-error' :
+                      selectedQuotation.status === 'read' ? 'badge-primary' : 'badge-success'
+                    }`} style={{
+                      backgroundColor: selectedQuotation.status === 'unread' ? '#FEF2F2' : selectedQuotation.status === 'read' ? '#EFF6FF' : '#ECFDF5',
+                      color: selectedQuotation.status === 'unread' ? '#EF4444' : selectedQuotation.status === 'read' ? '#3B82F6' : '#10B981',
+                      border: `1px solid ${selectedQuotation.status === 'unread' ? '#FEE2E2' : selectedQuotation.status === 'read' ? '#DBEAFE' : '#D1FAE5'}`
+                    }}>
+                      {selectedQuotation.status}
+                    </span>
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-label">Submitted On</div>
+                  <div className="detail-value">
+                    {new Date(selectedQuotation.createdAt).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {selectedQuotation.message && (
+                <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Message / Special Requirements</label>
+                  <div style={{
+                    padding: '12px 16px',
+                    background: 'var(--color-background)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '6px',
+                    fontSize: '0.95rem',
+                    lineHeight: '1.5',
+                    maxHeight: '150px',
+                    overflowY: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    color: 'var(--color-text)'
+                  }}>
+                    {selectedQuotation.message}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {selectedQuotation.status !== 'contacted' && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      handleUpdateQuotationStatus(selectedQuotation._id, 'contacted');
+                    }}
+                    style={{ backgroundColor: '#10B981', borderColor: '#10B981' }}
+                  >
+                    Mark Contacted
+                  </button>
+                )}
+                <button
+                  className="btn btn-outline"
+                  onClick={() => {
+                    handleUpdateQuotationStatus(selectedQuotation._id, selectedQuotation.status === 'unread' ? 'read' : 'unread');
+                  }}
+                >
+                  Mark {selectedQuotation.status === 'unread' ? 'Read' : 'Unread'}
+                </button>
+              </div>
+              <button
+                className="btn btn-outline"
+                style={{ color: '#EF4444', borderColor: '#EF4444' }}
+                onClick={() => {
+                  setDeleteQuotationModal(selectedQuotation);
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteQuotationModal && (
+        <div className="modal-overlay" onClick={() => setDeleteQuotationModal(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Delete Quotation Request</h3>
+              <button className="modal-close" onClick={() => setDeleteQuotationModal(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              Are you sure you want to delete the quotation request from <strong>{deleteQuotationModal.institutionName}</strong>? This action cannot be undone.
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setDeleteQuotationModal(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={() => handleDeleteQuotation(deleteQuotationModal._id)} >Delete Request</button>
             </div>
           </div>
         </div>
