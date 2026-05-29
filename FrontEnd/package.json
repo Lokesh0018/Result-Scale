@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "dotenv -e .env.local -- vite",
-    "build": "dotenv -e env.production -- vite build",
-    "preview": "dotenv -e env.production -- vite preview"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "lucide-react": "^0.564.0",

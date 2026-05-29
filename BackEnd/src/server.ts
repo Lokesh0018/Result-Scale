@@ -1,11 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
-dotenv.config({
-  path:
-    process.env.NODE_ENV === "production"
-      ? ".env.production"
-      : ".env.local",
-});
+dotenv.config();
 import cors from "cors";
 import connectDB from "./config/db";
 import { router as adminRoutes } from "./routes/adminRoutes";
