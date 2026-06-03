@@ -1,25 +1,12 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateProfile = exports.updatePassword = exports.getStudents = exports.deleteStudent = exports.updateStudent = exports.addStudent = exports.getDashboard = void 0;
 const clientService_1 = require("../service/clientService");
 const logService_1 = require("../service/logService");
-const Client_1 = __importDefault(require("../models/Client"));
-const getClientEmail = async (clientId) => {
-    try {
-        const client = await Client_1.default.findById(clientId);
-        return client ? client.email : "unknown_client";
-    }
-    catch {
-        return "unknown_client";
-    }
-};
 const getDashboard = async (req, res) => {
     try {
-        const clientId = req.params.clientId;
-        const data = await (0, clientService_1.GetDashboard)(clientId);
+        const clientEmail = req.params.clientEmail;
+        const data = await (0, clientService_1.GetDashboard)(clientEmail);
         return res.status(200).json({
             success: true,
             message: "DashBoard Fetched Successfully",
@@ -36,16 +23,16 @@ const getDashboard = async (req, res) => {
 };
 exports.getDashboard = getDashboard;
 const addStudent = async (req, res) => {
-    const { clientId, name, email, rollNo, semester, sgpa } = req.body;
-    const actorEmail = req.headers["x-user-email"] || (clientId ? await getClientEmail(clientId) : "unknown_client");
+    const { clientEmail, name, email, rollNo, semester, sgpa } = req.body;
+    const actorEmail = req.headers["x-user-email"] || clientEmail;
     const actorRole = req.headers["x-user-role"] || "client";
     try {
-        if (!clientId || !name || !email || !rollNo || semester === undefined || sgpa === undefined)
+        if (!clientEmail || !name || !email || !rollNo || semester === undefined || sgpa === undefined)
             return res.status(400).json({
                 success: false,
                 message: "Client id, name, email, roll no, semester are required !",
             });
-        const student = await (0, clientService_1.AddStudent)(clientId, name, email, rollNo, semester, sgpa);
+        const student = await (0, clientService_1.AddStudent)(clientEmail, name, email, rollNo, semester, sgpa);
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Student Created", "student", `Added student: ${name} (${rollNo}, Sem: ${semester}, SGPA: ${sgpa})`, "success");
         return res.status(201).json({
             success: true,
@@ -69,16 +56,16 @@ const addStudent = async (req, res) => {
 exports.addStudent = addStudent;
 const updateStudent = async (req, res) => {
     const oldEmail = req.params.email;
-    const { clientId, name, email, rollNo, semester, sgpa } = req.body;
-    const actorEmail = req.headers["x-user-email"] || (clientId ? await getClientEmail(clientId) : "unknown_client");
+    const { clientEmail, name, email, rollNo, semester, sgpa } = req.body;
+    const actorEmail = req.headers["x-user-email"] || clientEmail;
     const actorRole = req.headers["x-user-role"] || "client";
     try {
-        if (!oldEmail || !clientId || !name || !email || !rollNo || !semester)
+        if (!oldEmail || !clientEmail || !name || !email || !rollNo || !semester)
             return res.status(400).json({
                 success: false,
                 message: "Client id, name, email, roll no, semester are required !",
             });
-        const student = await (0, clientService_1.UpdateStudent)(oldEmail, clientId, name, email, rollNo, semester, sgpa);
+        const student = await (0, clientService_1.UpdateStudent)(oldEmail, clientEmail, name, email, rollNo, semester, sgpa);
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Student Updated", "student", `Updated student: ${name} (${rollNo}, Sem: ${semester}, SGPA: ${sgpa})`, "success");
         return res.status(200).json({
             success: true,
@@ -107,11 +94,11 @@ const updateStudent = async (req, res) => {
 exports.updateStudent = updateStudent;
 const deleteStudent = async (req, res) => {
     const email = req.params.email;
-    const { clientId } = req.body;
-    const actorEmail = req.headers["x-user-email"] || (clientId ? await getClientEmail(clientId) : "unknown_client");
+    const { clientEmail } = req.body;
+    const actorEmail = req.headers["x-user-email"] || clientEmail;
     const actorRole = req.headers["x-user-role"] || "client";
     try {
-        const student = await (0, clientService_1.DeleteStudent)(email, clientId);
+        const student = await (0, clientService_1.DeleteStudent)(email, clientEmail);
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Student Deleted", "student", `Deleted student: ${student.name} (${student.rollNo})`, "success");
         return res.status(200).json({
             success: true,
@@ -135,8 +122,8 @@ const deleteStudent = async (req, res) => {
 exports.deleteStudent = deleteStudent;
 const getStudents = async (req, res) => {
     try {
-        const clientId = req.params.clientId;
-        const students = await (0, clientService_1.GetStudents)(clientId);
+        const clientEmail = req.params.clientEmail;
+        const students = await (0, clientService_1.GetStudents)(clientEmail);
         return res.status(200).json({
             success: true,
             message: "Students Fetched Successfully",
@@ -180,18 +167,18 @@ const updatePassword = async (req, res) => {
 };
 exports.updatePassword = updatePassword;
 const updateProfile = async (req, res) => {
-    const clientId = req.params.clientId;
+    const clientEmail = req.params.clientEmail;
     const { institutionName, email, password } = req.body;
     const actorEmail = req.headers["x-user-email"] || email || "unknown_client";
     const actorRole = req.headers["x-user-role"] || "client";
     try {
-        if (!clientId || !institutionName || !email) {
+        if (!clientEmail || !institutionName || !email) {
             return res.status(400).json({
                 success: false,
                 message: "Client id, institution name, and email are required !",
             });
         }
-        const client = await (0, clientService_1.UpdateProfile)(clientId, institutionName, email, password);
+        const client = await (0, clientService_1.UpdateProfile)(clientEmail, institutionName, email, password);
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Profile Updated", "client", `Client profile updated: ${institutionName} (${email})`, "success");
         return res.status(200).json({
             success: true,

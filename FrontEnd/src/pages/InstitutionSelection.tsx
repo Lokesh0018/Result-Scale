@@ -7,6 +7,7 @@ import { useToast } from '../components/Toast'
 import '../styles/institution-selection.css'
 
 const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL;
+const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API_URL;
 
 interface Institution {
   _id: string;
@@ -34,18 +35,26 @@ function InstitutionSelection() {
   const fetchInstitutions = () => {
     setLoading(true)
     setError(null)
-    fetch(`${VITE_RENDER_API_URL}/student/institutions`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json"
-      }
-    })
-      .then(async (res) => {
+
+    const fetchFromUrl = (url: string) => {
+      return fetch(`${url}/student/institutions`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }).then(async (res) => {
         const data = await res.json()
         if (!res.ok) {
           throw new Error(data.message || "Failed to fetch institutions")
         }
         return data
+      })
+    };
+
+    fetchFromUrl(VITE_RENDER_API_URL)
+      .catch((err) => {
+        console.warn("Render API failed, trying Railway API as fallback...", err.message);
+        return fetchFromUrl(VITE_RAILWAY_API_URL);
       })
       .then((data) => {
         // Only show active and non-expired portals as per business logic

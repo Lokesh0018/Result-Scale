@@ -42,18 +42,18 @@ const sendOtp = async (email, otp) => {
 const generateOtp = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
 };
-const VerifyStudentLogin = async (email, rollNo, clientId) => {
+const VerifyStudentLogin = async (email, rollNo, clientEmail) => {
     const student = await Student_1.default.findOne({ email });
     if (!student)
         throw new Error("Student not found!");
     if (student.rollNo !== rollNo)
         throw new Error("Invalid credentials");
-    if (clientId && student.clientId.toString() !== clientId) {
-        throw new Error("You do not belong to the selected institution.");
-    }
     const client = await Client_1.default.findById(student.clientId);
     if (!client || !client.isActive) {
         throw new Error("Portal Access Expired !");
+    }
+    if (clientEmail && client.email.toLowerCase() !== clientEmail.toLowerCase()) {
+        throw new Error("You do not belong to the selected institution.");
     }
     if (client && new Date(client.portalExpiryDate).getTime() < Date.now())
         throw new Error("Portal Access Expired !");

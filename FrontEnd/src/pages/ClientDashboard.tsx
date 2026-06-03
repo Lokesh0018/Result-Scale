@@ -35,7 +35,7 @@ function ClientDashboard() {
   const [isUploadingCsv, setIsUploadingCsv] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [formData, setFormData] = useState({
-    clientId: clientId,
+    clientEmail: localStorage.getItem("userEmail") || clientEmail,
     rollNo: "",
     name: "",
     email: "",
@@ -134,18 +134,41 @@ function ClientDashboard() {
     if (activeSection === "dashboard" || activeSection === "students" || activeSection === "settings") {
       const fetchDashboard = async () => {
         try {
-          const [renderRes, railwayRes] = await Promise.all([
-            fetch(`${VITE_RENDER_API_URL}/client/dashboard/${clientId}`),
-            fetch(`${VITE_RAILWAY_API_URL}/client/dashboard/${clientId}`)
+          const results = await Promise.allSettled([
+            fetch(`${VITE_RENDER_API_URL}/client/dashboard/${localStorage.getItem("clientId") || localStorage.getItem("userEmail") || clientEmail}`).then(async res => {
+              if (!res.ok) throw new Error(await res.text());
+              return res.json();
+            }),
+            fetch(`${VITE_RAILWAY_API_URL}/client/dashboard/${localStorage.getItem("userEmail") || clientEmail}`).then(async res => {
+              if (!res.ok) throw new Error(await res.text());
+              return res.json();
+            })
           ]);
 
-          const [renderData, railwayData] = await Promise.all([
-            renderRes.json(),
-            railwayRes.json()
-          ]);
+          let renderStudents: any[] = [];
+          let railwayStudents: any[] = [];
+          let clientInfo: any = null;
+          let partialFailure = false;
 
-          const renderStudents = renderData.data.students || [];
-          const railwayStudents = railwayData.data.students || [];
+          if (results[0].status === "fulfilled") {
+            renderStudents = results[0].value.data?.students || [];
+            clientInfo = clientInfo || results[0].value.data?.client;
+          } else {
+            console.error("Render database dashboard load failed:", results[0].reason);
+            partialFailure = true;
+          }
+
+          if (results[1].status === "fulfilled") {
+            railwayStudents = results[1].value.data?.students || [];
+            clientInfo = clientInfo || results[1].value.data?.client;
+          } else {
+            console.error("Railway database dashboard load failed:", results[1].reason);
+            partialFailure = true;
+          }
+
+          if (results[0].status === "rejected" && results[1].status === "rejected") {
+            throw new Error("Both database servers failed to respond.");
+          }
 
           const allStudents = [
             ...renderStudents,
@@ -153,10 +176,6 @@ function ClientDashboard() {
           ];
 
           setStudents(allStudents);
-
-          const clientInfo =
-            renderData.data.client ??
-            railwayData.data.client;
 
           if (clientInfo) {
             setClientName(clientInfo.institutionName);
@@ -179,8 +198,12 @@ function ClientDashboard() {
 
           setSemester(totalSemesters);
 
+          if (partialFailure) {
+            showToast("Warning: Failed to fetch records from one of the database servers.", "warning");
+          }
+
         } catch (err: any) {
-          showToast(err.message, "error");
+          showToast(err.message || "Failed to load dashboard data.", "error");
         }
       };
       fetchDashboard();
@@ -246,7 +269,11 @@ function ClientDashboard() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          clientId: localStorage.getItem("clientId") || clientId,
+          clientEmail: localStorage.getItem("userEmail") || clientEmail,
+        }),
       })
         .then(async (res) => {
           const data = await res.json();
@@ -288,7 +315,11 @@ function ClientDashboard() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          clientId: localStorage.getItem("clientId") || clientId,
+          clientEmail: localStorage.getItem("userEmail") || clientEmail,
+        }),
       })
         .then(async (res) => {
           const data = await res.json();
@@ -342,7 +373,8 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      clientId,
+      clientId: localStorage.getItem("clientId") || clientId,
+      clientEmail: localStorage.getItem("userEmail") || clientEmail,
     }),
   })
     .then(async (res) => {
@@ -436,7 +468,8 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
       }
 
       return {
-        clientId,
+        clientId: localStorage.getItem("clientId") || clientId,
+        clientEmail: localStorage.getItem("userEmail") || clientEmail,
         rollNo: getValue("rollNo"),
         name: getValue("name"),
         email: getValue("email"),
@@ -523,20 +556,38 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (clientPassword) {
       payload.password = clientPassword;
     }
-    fetch(`${VITE_RENDER_API_URL}/client/profile/${clientId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "X-User-Email": localStorage.getItem("userEmail") || clientEmail,
-        "X-User-Role": localStorage.getItem("userRole") || "client"
-      },
-      body: JSON.stringify(payload),
-    }).then(async (res) => {
-      const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.message || "Failed to update profile");
-      return data;
-    }).then((data) => {
+
+    const urls = [
+      VITE_RENDER_API_URL,
+      VITE_RAILWAY_API_URL
+    ];
+
+    Promise.allSettled(
+      urls.map((url) =>
+        fetch(`${url}/client/profile/${localStorage.getItem("userEmail") || clientEmail}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-User-Email": localStorage.getItem("userEmail") || clientEmail,
+            "X-User-Role": localStorage.getItem("userRole") || "client"
+          },
+          body: JSON.stringify(payload),
+        }).then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.message || "Failed to update profile");
+          }
+          return data;
+        })
+      )
+    ).then((results) => {
+      const successful = results.find(r => r.status === "fulfilled");
+      if (!successful) {
+        const firstError = results.find(r => r.status === "rejected") as PromiseRejectedResult;
+        throw new Error(firstError.reason.message || "Failed to update profile on all servers");
+      }
+
+      const data = (successful as PromiseFulfilledResult<any>).value;
       showToast("Profile settings updated successfully!", "success");
       setClientPassword("");
       if (data.client) {
