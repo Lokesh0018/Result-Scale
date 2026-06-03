@@ -1,5 +1,4 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Link, useLocation } from 'react-router-dom'
 import { BarChart3, Printer, Download, Home } from 'lucide-react'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/student.css'
