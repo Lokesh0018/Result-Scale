@@ -13,7 +13,7 @@ const GetDashboard = async () => {
     return await Client_1.default.find().lean();
 };
 exports.GetDashboard = GetDashboard;
-const AddClient = async (institutionName, email, password, portalExpiryDate) => {
+const AddClient = async (institutionName, email, password, portalExpiryDate, institutionType, logoUrl, isActive) => {
     const existingClient = await Client_1.default.findOne({ email });
     if (existingClient)
         throw new Error(`Already Exists with Email ${email}`);
@@ -26,12 +26,15 @@ const AddClient = async (institutionName, email, password, portalExpiryDate) => 
         institutionName,
         students: 0,
         portalExpiryDate,
+        institutionType: institutionType || "University",
+        logoUrl: logoUrl || "",
+        isActive: isActive !== undefined ? isActive : true,
     });
     const { password: _password, ...clientDto } = client.toObject();
     return clientDto;
 };
 exports.AddClient = AddClient;
-const UpdateClient = async (institutionName, oldEmail, email, password, portalExpiryDate) => {
+const UpdateClient = async (institutionName, oldEmail, email, password, portalExpiryDate, institutionType, logoUrl, isActive) => {
     const client = await Client_1.default.findOne({ email: oldEmail });
     if (!client)
         throw new Error("Client not found !");
@@ -46,6 +49,15 @@ const UpdateClient = async (institutionName, oldEmail, email, password, portalEx
     client.password = password;
     client.institutionName = institutionName;
     client.portalExpiryDate = portalExpiryDate;
+    if (institutionType !== undefined) {
+        client.institutionType = institutionType;
+    }
+    if (logoUrl !== undefined) {
+        client.logoUrl = logoUrl;
+    }
+    if (isActive !== undefined) {
+        client.isActive = isActive;
+    }
     await client.save();
     const { password: _password, ...clientDto } = client.toObject();
     return clientDto;

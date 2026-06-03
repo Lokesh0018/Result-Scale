@@ -48,7 +48,7 @@ const generateOtp = (): string => {
     ).toString();
 };
 
-export const VerifyStudentLogin = async (email: string, rollNo: string) => {
+export const VerifyStudentLogin = async (email: string, rollNo: string, clientId?: string) => {
     const student = await Student.findOne({ email });
 
     if (!student)
@@ -57,7 +57,14 @@ export const VerifyStudentLogin = async (email: string, rollNo: string) => {
     if (student.rollNo !== rollNo)
         throw new Error("Invalid credentials");
 
+    if (clientId && student.clientId.toString() !== clientId) {
+        throw new Error("You do not belong to the selected institution.");
+    }
+
     const client = await Client.findById(student.clientId);
+    if (!client || !client.isActive) {
+        throw new Error("Portal Access Expired !");
+    }
     if (client && new Date(client.portalExpiryDate).getTime() < Date.now())
         throw new Error("Portal Access Expired !");
 

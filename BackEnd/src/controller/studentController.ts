@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import { VerifyStudentLogin, VerifyOtp } from "../service/studentService";
 import { LogActivity } from "../service/logService";
+import Client from "../models/Client";
 
 export const login = async (req: Request, res: Response) => {
-    const { email, rollNo } = req.body;
+    const { email, rollNo, clientId } = req.body;
     try {
         if (!email || !rollNo) {
             return res.status(400).json({
@@ -11,7 +12,7 @@ export const login = async (req: Request, res: Response) => {
                 message: "Email and roll number are required !",
             });
         }
-        const student = await VerifyStudentLogin(email, rollNo);
+        const student = await VerifyStudentLogin(email, rollNo, clientId);
         await LogActivity(email, "student", "Login OTP Requested", "auth", `OTP sent for roll number: ${rollNo}`, "success");
         return res.status(200).json({
             success: true,
@@ -88,3 +89,22 @@ export const verifyOtp = async (req: Request, res: Response) => {
         });
     }
 }
+
+export const getActiveInstitutions = async (req: Request, res: Response) => {
+    try {
+        const institutions = await Client.find()
+            .select("-password")
+            .lean();
+
+        return res.status(200).json({
+            success: true,
+            data: institutions
+        });
+    } catch (err: any) {
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch institutions",
+            err: err.message
+        });
+    }
+};

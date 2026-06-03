@@ -12,6 +12,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import ClientDashboard from './pages/ClientDashboard'
 import DatabaseStructure from './pages/DatabaseStructure'
 import RequestQuotation from './pages/RequestQuotation'
+import InstitutionSelection from './pages/InstitutionSelection'
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/client/login" element={<ClientLogin />} />
+          <Route path="/student/select-institution" element={<InstitutionSelection />} />
           <Route path="/student/login" element={<StudentLogin />} />
           <Route path="/student/verify-otp" element={<VerifyOTP />} />
           <Route path="/student/result" element={<StudentResult />} />

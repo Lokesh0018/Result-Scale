@@ -5,7 +5,8 @@ import { BarChart3, Mail } from 'lucide-react'
 import '../styles/student.css'
 import { useToast } from '../components/Toast';
 
-const API_URL = (import.meta as any).env.VITE_API_URL;
+const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL;
+const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API_URL;
 
 function VerifyOTP() {
   const location = useLocation();
@@ -17,6 +18,19 @@ function VerifyOTP() {
   const [timer, setTimer] = useState(300)
   const [canResend, setCanResend] = useState(false)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  function convertLastChar(str: string): number {
+    if (!str) return 0;
+    const lastChar = str.at(-1)!;
+    if (/\d/.test(lastChar)) {
+      return Number(lastChar);
+    }
+    const code = lastChar.toLowerCase().charCodeAt(0);
+    if (code >= 97 && code <= 122) {
+      return (code - 97) % 10;
+    }
+    return 0;
+  }
 
   useEffect(() => {
     if (timer > 0) {
@@ -48,63 +62,101 @@ function VerifyOTP() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const otpValue = otp.join('')
-    if (otpValue.length < 6) {
-      showToast("Enter Valid OTP", "error");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const otpValue = otp.join("");
+
+    if (otpValue.length !== 6) {
+      showToast("Enter a valid OTP", "error");
       return;
     }
-    fetch(`${API_URL}/student/verify-otp`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: email,
-        otp: otpValue
-      })
-    }).then(async (res) => {
-      const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.message);
-      return data;
-    }).then((data) => {
-      showToast(data.message, "success");
-      navigate('/student/result',{
-        state:{
-          student:data.student
+
+    try {
+      const apiUrl =
+        convertLastChar(rollNo) % 2 === 0
+          ? VITE_RENDER_API_URL
+          : VITE_RAILWAY_API_URL;
+
+      const res = await fetch(
+        `${apiUrl}/student/verify-otp`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            otp: otpValue,
+          }),
         }
-      })
-    }).catch((err) => {
-      showToast(err.message,"error");
-    })
-  }
+      );
 
-  const handleResend = () => {
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "OTP verification failed");
+      }
+
+      showToast(data.message, "success");
+
+      navigate("/student/result", {
+        state: {
+          student: data.student,
+        },
+      });
+    } catch (err: any) {
+      showToast(err.message, "error");
+    }
+  };
+
+  const handleResend = async () => {
     if (!email || !rollNo) {
-      showToast("Missing login information. Please try logging in again.", "error");
+      showToast(
+        "Missing login information. Please try logging in again.",
+        "error"
+      );
       return;
     }
-    fetch(`${API_URL}/student/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ email, rollNo }),
-    }).then(async (res) => {
-      const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.message);
-      return data;
-    }).then(() => {
-      showToast('OTP resent to your email address!', 'success');
-      setTimer(300)
-      setCanResend(false)
-      setOtp(['', '', '', '', '', ''])
-    }).catch((err: any) => {
-      showToast(err.message, "error");
-    });
-  }
 
+    try {
+      const apiUrl =
+        convertLastChar(rollNo) % 2 === 0
+          ? VITE_RENDER_API_URL
+          : VITE_RAILWAY_API_URL;
+
+      const res = await fetch(`${apiUrl}/student/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          rollNo,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.message || "Failed to resend OTP"
+        );
+      }
+
+      showToast(
+        data.message || "OTP resent to your email address!",
+        "success"
+      );
+
+      setTimer(300);
+      setCanResend(false);
+      setOtp(["", "", "", "", "", ""]);
+
+    } catch (err: any) {
+      showToast(err.message, "error");
+    }
+  };
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60

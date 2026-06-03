@@ -1,10 +1,14 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyOtp = exports.login = void 0;
+exports.getActiveInstitutions = exports.verifyOtp = exports.login = void 0;
 const studentService_1 = require("../service/studentService");
 const logService_1 = require("../service/logService");
+const Client_1 = __importDefault(require("../models/Client"));
 const login = async (req, res) => {
-    const { email, rollNo } = req.body;
+    const { email, rollNo, clientId } = req.body;
     try {
         if (!email || !rollNo) {
             return res.status(400).json({
@@ -12,7 +16,7 @@ const login = async (req, res) => {
                 message: "Email and roll number are required !",
             });
         }
-        const student = await (0, studentService_1.VerifyStudentLogin)(email, rollNo);
+        const student = await (0, studentService_1.VerifyStudentLogin)(email, rollNo, clientId);
         await (0, logService_1.LogActivity)(email, "student", "Login OTP Requested", "auth", `OTP sent for roll number: ${rollNo}`, "success");
         return res.status(200).json({
             success: true,
@@ -85,3 +89,22 @@ const verifyOtp = async (req, res) => {
     }
 };
 exports.verifyOtp = verifyOtp;
+const getActiveInstitutions = async (req, res) => {
+    try {
+        const institutions = await Client_1.default.find()
+            .select("-password")
+            .lean();
+        return res.status(200).json({
+            success: true,
+            data: institutions
+        });
+    }
+    catch (err) {
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch institutions",
+            err: err.message
+        });
+    }
+};
+exports.getActiveInstitutions = getActiveInstitutions;

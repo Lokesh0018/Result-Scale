@@ -11,6 +11,9 @@ export interface IClient extends IAdmin {
     institutionName: string;
     students: number;
     portalExpiryDate: Date;
+    institutionType: string;
+    logoUrl?: string;
+    isActive: boolean;
 }
 
 export interface IStudent extends Document {

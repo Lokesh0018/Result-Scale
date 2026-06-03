@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   BarChart3, LayoutDashboard, Users, Settings, LogOut,
-  Bell, Building2, UserCheck, Clock, Menu, X,
+  Bell, Building2, Clock, Menu, X,
   Plus, Pencil, Trash2, Mail, Calendar, Shield, Database, MoonStar, Sun,
-  History, RotateCw, CheckCircle, XCircle, Eye, MailOpen, FileText
+  History, RotateCw, CheckCircle, XCircle, Eye, MailOpen, FileText, Server
 } from 'lucide-react'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/dashboard.css'
@@ -12,7 +12,8 @@ import { useTheme } from "../components/ThemeProvider";
 import { useToast } from '../components/Toast';
 import { Client, Student } from '../types/Types';
 
-const API_URL = (import.meta as any).env.VITE_API_URL;
+const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL;
+const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API_URL;
 
 function AdminDashboard() {
   const { showToast } = useToast();
@@ -35,6 +36,8 @@ function AdminDashboard() {
   const [clients, setClients] = useState<Client[]>([]);
   const [activeClients, setActiveClients] = useState<Client[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [renderStudents, setRenderStudents] = useState<Student[]>([]);
+  const [railwayStudents, setRailwayStudents] = useState<Student[]>([]);
   const [expired, setExpired] = useState(0);
   const [formData, setFormData] = useState({
     institutionName: "",
@@ -42,7 +45,10 @@ function AdminDashboard() {
     password: "",
     portalExpiryDate: new Date(0),
     role: "client",
-    oldEmail: ""
+    oldEmail: "",
+    institutionType: "University",
+    logoUrl: "",
+    isActive: true
   });
 
   const [addOrUpdate, setAddOrUpdate] = useState(true);
@@ -93,6 +99,8 @@ function AdminDashboard() {
   const [deleteInquiryModal, setDeleteInquiryModal] = useState<Inquiry | null>(null);
 
   interface QuotationRequest {
+    otpRequired: boolean;
+    marksMemoRequired: boolean;
     _id: string;
     institutionName: string;
     contactPerson: string;
@@ -232,7 +240,7 @@ function AdminDashboard() {
   const fetchQuotationRequests = () => {
     setLoadingQuotations(true);
     setQuotationsError(null);
-    fetch(`${API_URL}/admin/quotation-requests`, {
+    fetch(`${VITE_RENDER_API_URL}/admin/quotation-requests`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -257,7 +265,21 @@ function AdminDashboard() {
       const apiList = data.requests || [];
       const merged = [...apiList];
       localList.forEach((localItem: any) => {
-        if (!merged.some(item => item._id === localItem._id)) {
+        const isDuplicate = merged.some(item => {
+          if (item._id === localItem._id) return true;
+          if (localItem._id && String(localItem._id).startsWith('req_')) {
+            const timeDiff = Math.abs(new Date(item.createdAt).getTime() - new Date(localItem.createdAt).getTime());
+            return (
+              item.email?.toLowerCase() === localItem.email?.toLowerCase() &&
+              item.institutionName?.toLowerCase() === localItem.institutionName?.toLowerCase() &&
+              item.studentCount === localItem.studentCount &&
+              item.accessDurationDays === localItem.accessDurationDays &&
+              timeDiff < 5 * 60 * 1000
+            );
+          }
+          return false;
+        });
+        if (!isDuplicate) {
           merged.push(localItem);
         }
       });
@@ -292,7 +314,7 @@ function AdminDashboard() {
       }
     }
 
-    fetch(`${API_URL}/admin/quotation-requests/${id}/status`, {
+    fetch(`${VITE_RENDER_API_URL}/admin/quotation-requests/${id}/status`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -332,7 +354,7 @@ function AdminDashboard() {
       }
     }
 
-    fetch(`${API_URL}/admin/quotation-requests/${id}`, {
+    fetch(`${VITE_RENDER_API_URL}/admin/quotation-requests/${id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -363,7 +385,7 @@ function AdminDashboard() {
   const fetchInquiries = () => {
     setLoadingInquiries(true);
     setInquiryError(null);
-    fetch(`${API_URL}/admin/inquiries`, {
+    fetch(`${VITE_RENDER_API_URL}/admin/inquiries`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -386,7 +408,7 @@ function AdminDashboard() {
   };
 
   const handleUpdateInquiryStatus = async (id: string, newStatus: 'unread' | 'read') => {
-    fetch(`${API_URL}/admin/inquiries/${id}/status`, {
+    fetch(`${VITE_RENDER_API_URL}/admin/inquiries/${id}/status`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -411,7 +433,7 @@ function AdminDashboard() {
   };
 
   const handleDeleteInquiry = async (id: string) => {
-    fetch(`${API_URL}/admin/inquiries/${id}`, {
+    fetch(`${VITE_RENDER_API_URL}/admin/inquiries/${id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -435,7 +457,7 @@ function AdminDashboard() {
     setDeleteInquiryModal(null);
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: any) => {
     setFormData({ ...formData, [field]: value })
     if (errors[field as keyof typeof errors]) {
       setErrors({ ...errors, [field]: undefined })
@@ -478,17 +500,39 @@ function AdminDashboard() {
   const updateShowModal = () => {
     setShowModal(true);
     setAddOrUpdate(true);
+    setFormData({
+      institutionName: "",
+      email: "",
+      password: "",
+      portalExpiryDate: new Date(),
+      role: "client",
+      oldEmail: "",
+      institutionType: "University",
+      logoUrl: "",
+      isActive: true
+    });
   }
 
   const changeClient = (client: Client, update: boolean) => {
     if (update) {
       setShowModal(true);
       setAddOrUpdate(false);
+      setFormData({
+        institutionName: client.institutionName,
+        email: client.email,
+        password: "", // User re-enters password
+        portalExpiryDate: new Date(client.portalExpiryDate),
+        role: "client",
+        oldEmail: client.email,
+        institutionType: client.institutionType || "University",
+        logoUrl: client.logoUrl || "",
+        isActive: client.isActive !== undefined ? client.isActive : true
+      });
     }
     else {
       setDeleteModal(true);
+      setFormData(prev => ({ ...prev, oldEmail: client.email }));
     }
-    handleInputChange("oldEmail", client.email);
   }
 
 
@@ -500,7 +544,7 @@ function AdminDashboard() {
 
 
   const fetchLogs = () => {
-    fetch(`${API_URL}/admin/logs`, {
+    fetch(`${VITE_RENDER_API_URL}/admin/logs`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -519,52 +563,67 @@ function AdminDashboard() {
 
   useEffect(() => {
     if (activeSection === "dashboard" || activeSection === "logs") {
-      fetch(`${API_URL}/admin/students`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
+      const fetchStudents = async () => {
+        try {
+          const [renderRes, railwayRes] = await Promise.all([
+            fetch(`${VITE_RENDER_API_URL}/admin/students`),
+            fetch(`${VITE_RAILWAY_API_URL}/admin/students`)
+          ]);
+
+          const renderData = await renderRes.json();
+          const railwayData = await railwayRes.json();
+          setRenderStudents(renderData.students);
+          setRailwayStudents(railwayData.students);
+          const allStudents = [
+            ...renderData.students,
+            ...railwayData.students
+          ];
+          setStudents(allStudents);
+        } catch (err: any) {
+          showToast(err.message, "error");
         }
-      }).then(async (res) => {
-        const data = await res.json();
-        if (!res.ok)
-          throw new Error(data.message || "failed");
-        return data;
-      }).then((data) => {
-        setStudents(data.students);
-      }).catch((err) => {
-        showToast(err.message, 'error');
-      });
+      };
+      fetchStudents();
     }
 
     if (activeSection === "dashboard" || activeSection === "clients") {
-      fetch(`${API_URL}/admin/dashboard`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
+      const fetchClients = async () => {
+        try {
+          const [renderRes, railwayRes] = await Promise.all([
+            fetch(`${VITE_RENDER_API_URL}/admin/dashboard`),
+            fetch(`${VITE_RAILWAY_API_URL}/admin/dashboard`)
+          ]);
+
+          const renderData = await renderRes.json();
+          const railwayData = await railwayRes.json();
+
+          const allUsers = [
+            ...renderData.data,
+            ...railwayData.data
+          ];
+
+          const clients: Client[] = allUsers.map(
+            (user: any, index: number) => ({
+              id: index + 1,
+              _id: user._id,
+              institutionName: user.institutionName,
+              email: user.email,
+              students: user.students,
+              status: "active",
+              portalExpiryDate: user.portalExpiryDate.split("T")[0],
+              institutionType: user.institutionType,
+              logoUrl: user.logoUrl,
+              isActive: user.isActive
+            })
+          );
+
+          updateClientLists(clients);
+
+        } catch (err: any) {
+          showToast(err.message, "error");
         }
-      }).then(async (res) => {
-        const data = await res.json();
-        if (!res.ok)
-          throw new Error(data.message || "failed");
-        return data;
-      }).then((data) => {
-        const users = data.data;
-        const allClients: Client[] = [];
-        for (let i = 0; i < users.length; i++) {
-          const user: Client = {
-            id: i + 1,
-            institutionName: users[i].institutionName,
-            email: users[i].email,
-            students: users[i].students,
-            status: "active",
-            portalExpiryDate: users[i].portalExpiryDate.split("T")[0]
-          }
-          allClients.push(user);
-        }
-        updateClientLists(allClients);
-      }).catch((err) => {
-        showToast(err.message, 'error');
-      });
+      };
+      fetchClients();
     }
 
     if (activeSection === "logs") {
@@ -595,7 +654,7 @@ function AdminDashboard() {
     const userEmail = localStorage.getItem("userEmail") || "admin@resultscale.com";
     const userRole = localStorage.getItem("userRole") || "admin";
     if (addOrUpdate) {
-      fetch(`${API_URL}/admin/clients`, {
+      fetch(`${VITE_RENDER_API_URL}/admin/clients`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -609,8 +668,18 @@ function AdminDashboard() {
           throw new Error(data.message);
         return data;
       }).then((data) => {
-        const newClient: Client = data.client;
-        newClient.portalExpiryDate = newClient.portalExpiryDate.toString().split("T")[0];
+        const newClient: Client = {
+          id: clients.length + 1,
+          _id: data.client._id || data.client.id,
+          institutionName: data.client.institutionName,
+          email: data.client.email,
+          students: data.client.students || 0,
+          status: new Date(data.client.portalExpiryDate).getTime() < Date.now() ? "expired" : "active",
+          portalExpiryDate: data.client.portalExpiryDate.toString().split("T")[0],
+          institutionType: data.client.institutionType,
+          logoUrl: data.client.logoUrl,
+          isActive: data.client.isActive
+        };
         const updatedClients = [...clients.filter((client) => client.email !== formData.oldEmail), newClient];
         updateClientLists(updatedClients);
         showToast(data.message, "success");
@@ -619,7 +688,7 @@ function AdminDashboard() {
       });
     }
     else {
-      fetch(`${API_URL}/admin/clients/${formData.oldEmail}`, {
+      fetch(`${VITE_RENDER_API_URL}/admin/clients/${formData.oldEmail}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -633,8 +702,19 @@ function AdminDashboard() {
           throw new Error(data.message);
         return data;
       }).then((data) => {
-        const newClient: Client = data.client;
-        newClient.portalExpiryDate = newClient.portalExpiryDate.toString().split("T")[0];
+        const existingId = clients.find((client) => client.email === formData.oldEmail)?.id || clients.length + 1;
+        const newClient: Client = {
+          id: existingId,
+          _id: data.client._id || data.client.id,
+          institutionName: data.client.institutionName,
+          email: data.client.email,
+          students: data.client.students || 0,
+          status: new Date(data.client.portalExpiryDate).getTime() < Date.now() ? "expired" : "active",
+          portalExpiryDate: data.client.portalExpiryDate.toString().split("T")[0],
+          institutionType: data.client.institutionType,
+          logoUrl: data.client.logoUrl,
+          isActive: data.client.isActive
+        };
         const updatedClients = [...clients.filter((client) => client.email !== formData.oldEmail), newClient];
         updateClientLists(updatedClients);
         showToast(data.message, "success");
@@ -649,7 +729,7 @@ function AdminDashboard() {
     e.preventDefault();
     const userEmail = localStorage.getItem("userEmail") || "admin@resultscale.com";
     const userRole = localStorage.getItem("userRole") || "admin";
-    fetch(`${API_URL}/admin/clients/${formData.oldEmail}`, {
+    fetch(`${VITE_RENDER_API_URL}/admin/clients/${formData.oldEmail}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -686,7 +766,7 @@ function AdminDashboard() {
     localStorage.setItem("userEmail", adminEmail);
 
     if (adminPassword) {
-      fetch(`${API_URL}/admin/password/${adminEmail}`, {
+      fetch(`${VITE_RENDER_API_URL}/admin/password/${adminEmail}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -839,15 +919,27 @@ function AdminDashboard() {
 
                 <div className="stat-card">
                   <div className="stat-card-header">
-                    <span className="stat-card-title">Active Portals</span>
+                    <span className="stat-card-title">Server 1</span>
                     <div className="stat-card-icon green">
-                      <UserCheck size={20} />
+                      <Server size={20} />
                     </div>
                   </div>
-                  <div className="stat-card-value">{activeClients.length}</div>
+                  <div className="stat-card-value">{renderStudents.length || 0}</div>
                   <div className="stat-card-change">
-                    {clients.length > 0 ? Math.floor((activeClients.length / clients.length) * 100) : 0}% of total
+                    Students in Render
                   </div>
+                </div>
+
+
+                <div className="stat-card">
+                  <div className="stat-card-header">
+                    <span className="stat-card-title">Server 2</span>
+                    <div className="stat-card-icon orange">
+                      <Server size={20} />
+                    </div>
+                  </div>
+                  <div className="stat-card-value">{railwayStudents.length || 0}</div>
+                  <div className="stat-card-change">Students in Railway</div>
                 </div>
 
                 <div className="stat-card">
@@ -858,18 +950,7 @@ function AdminDashboard() {
                     </div>
                   </div>
                   <div className="stat-card-value">{students.length}</div>
-                  <div className="stat-card-change positive">Across all active institutions</div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-card-header">
-                    <span className="stat-card-title">Expired Portals</span>
-                    <div className="stat-card-icon orange">
-                      <Clock size={20} />
-                    </div>
-                  </div>
-                  <div className="stat-card-value">{expired}</div>
-                  <div className="stat-card-change">Require renewal activation</div>
+                  <div className="stat-card-change positive">Across all active servers</div>
                 </div>
               </div>
 
@@ -1550,7 +1631,7 @@ function AdminDashboard() {
           )}
 
           {activeSection === 'quotation-requests' && (
-            <div className="table-section" style={{ overflowX: 'auto' }}>
+            <div className="table-section">
               <div className="table-header" style={{ borderBottom: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 className="table-title">Quotation Requests</h2>
                 <button className="btn btn-outline" onClick={fetchQuotationRequests} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1622,111 +1703,109 @@ function AdminDashboard() {
                   </p>
                 </div>
               ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Institution</th>
-                        <th>Contact Person</th>
-                        <th>Email</th>
-                        <th>Phone Number</th>
-                        <th>Students</th>
-                        <th>Duration (Days)</th>
-                        <th>Hosting Cost</th>
-                        <th>OTP Cost</th>
-                        <th>Estimated Total</th>
-                        <th>Status</th>
-                        <th>Created Date</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedQuotations.map((req) => (
-                        <tr
-                          key={req._id}
-                          className="clickable-row"
-                          onClick={(e) => {
-                            const target = e.target as HTMLElement;
-                            if (target.closest('.action-btn')) return;
-                            setSelectedQuotation(req);
-                          }}
-                        >
-                          <td style={{ fontWeight: 500 }}>{req.institutionName}</td>
-                          <td>{req.contactPerson}</td>
-                          <td style={{ color: 'var(--color-text-muted)' }}>{req.email}</td>
-                          <td style={{ color: 'var(--color-text-muted)' }}>{req.phone}</td>
-                          <td>{(req.studentCount || 0).toLocaleString('en-IN')}</td>
-                          <td>{req.accessDurationDays} Days</td>
-                          <td style={{ fontWeight: 600 }}>₹{(req.hostingCost || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                          <td style={{ color: 'var(--color-text-muted)' }}>₹{(req.otpCost || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                          <td style={{ fontWeight: 700, color: 'var(--color-text)' }}>₹{(req.estimatedTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                          <td>
-                            {(() => {
-                              let bgColor = '#FEF3C7';
-                              let color = '#D97706';
-                              let borderColor = '#FDE68A';
-                              switch (req.status) {
-                                case 'Under Review':
-                                  bgColor = '#EFF6FF'; color = '#2563EB'; borderColor = '#DBEAFE'; break;
-                                case 'Contacted':
-                                  bgColor = '#EEF2FF'; color = '#4F46E5'; borderColor = '#E0E7FF'; break;
-                                case 'Quotation Sent':
-                                  bgColor = '#F0FDFA'; color = '#0D9488'; borderColor = '#CCFBF1'; break;
-                                case 'Approved':
-                                  bgColor = '#ECFDF5'; color = '#059669'; borderColor = '#D1FAE5'; break;
-                                case 'Rejected':
-                                  bgColor = '#FEF2F2'; color = '#DC2626'; borderColor = '#FEE2E2'; break;
-                              }
-                              return (
-                                <span className="badge" style={{
-                                  backgroundColor: bgColor,
-                                  color: color,
-                                  border: `1px solid ${borderColor}`,
-                                  textTransform: 'capitalize',
-                                  fontSize: '0.75rem',
-                                  padding: '4px 8px',
-                                  borderRadius: '4px',
-                                  fontWeight: 600,
-                                  display: 'inline-block'
-                                }}>
-                                  {req.status}
-                                </span>
-                              );
-                            })()}
-                          </td>
-                          <td style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-                            {new Date(req.createdAt).toLocaleDateString()} {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                              <button
-                                className="action-btn edit"
-                                title="View Details"
-                                onClick={() => setSelectedQuotation(req)}
-                              >
-                                <Eye size={14} />
-                              </button>
-                              <a
-                                href={`mailto:${req.email}`}
-                                className="action-btn"
-                                style={{ color: '#EF4444', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                                title="Contact Client"
-                              >
-                                <Mail size={14} />
-                              </a>
-                              <button
-                                className="action-btn delete"
-                                title="Delete request"
-                                onClick={() => setDeleteQuotationModal(req)}
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </td>
+                <>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Institution</th>
+                          <th>Contact Person</th>
+                          <th>Email</th>
+                          <th>Phone Number</th>
+                          <th>Students</th>
+                          <th>Duration (Days)</th>
+                          <th>Estimated Total</th>
+                          <th>Status</th>
+                          <th>Created Date</th>
+                          <th>Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {paginatedQuotations.map((req) => (
+                          <tr
+                            key={req._id}
+                            className="clickable-row"
+                            onClick={(e) => {
+                              const target = e.target as HTMLElement;
+                              if (target.closest('.action-btn')) return;
+                              setSelectedQuotation(req);
+                            }}
+                          >
+                            <td style={{ fontWeight: 500, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.institutionName}>{req.institutionName}</td>
+                            <td style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.contactPerson}>{req.contactPerson}</td>
+                            <td style={{ color: 'var(--color-text-muted)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.email}>{req.email}</td>
+                            <td style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{req.phone}</td>
+                            <td>{(req.studentCount || 0).toLocaleString('en-IN')}</td>
+                            <td style={{ whiteSpace: 'nowrap' }}>{req.accessDurationDays} Days</td>
+                            <td style={{ fontWeight: 700, color: 'var(--color-text)', whiteSpace: 'nowrap' }}>₹{(req.estimatedTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            <td>
+                              {(() => {
+                                let bgColor = '#FEF3C7';
+                                let color = '#D97706';
+                                let borderColor = '#FDE68A';
+                                switch (req.status) {
+                                  case 'Under Review':
+                                    bgColor = '#EFF6FF'; color = '#2563EB'; borderColor = '#DBEAFE'; break;
+                                  case 'Contacted':
+                                    bgColor = '#EEF2FF'; color = '#4F46E5'; borderColor = '#E0E7FF'; break;
+                                  case 'Quotation Sent':
+                                    bgColor = '#F0FDFA'; color = '#0D9488'; borderColor = '#CCFBF1'; break;
+                                  case 'Approved':
+                                    bgColor = '#ECFDF5'; color = '#059669'; borderColor = '#D1FAE5'; break;
+                                  case 'Rejected':
+                                    bgColor = '#FEF2F2'; color = '#DC2626'; borderColor = '#FEE2E2'; break;
+                                }
+                                return (
+                                  <span className="badge" style={{
+                                    backgroundColor: bgColor,
+                                    color: color,
+                                    border: `1px solid ${borderColor}`,
+                                    textTransform: 'capitalize',
+                                    fontSize: '0.75rem',
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    fontWeight: 600,
+                                    display: 'inline-block'
+                                  }}>
+                                    {req.status}
+                                  </span>
+                                );
+                              })()}
+                            </td>
+                            <td style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                              {new Date(req.createdAt).toLocaleDateString()} {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <button
+                                  className="action-btn edit"
+                                  title="View Details"
+                                  onClick={() => setSelectedQuotation(req)}
+                                >
+                                  <Eye size={14} />
+                                </button>
+                                <a
+                                  href={`mailto:${req.email}`}
+                                  className="action-btn"
+                                  style={{ color: '#EF4444', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                  title="Contact Client"
+                                >
+                                  <Mail size={14} />
+                                </a>
+                                <button
+                                  className="action-btn delete"
+                                  title="Delete request"
+                                  onClick={() => setDeleteQuotationModal(req)}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
                   {totalQuotationPages > 1 && (
                     <div className="pagination-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderTop: '1px solid var(--color-border)' }}>
@@ -1763,7 +1842,7 @@ function AdminDashboard() {
                       </div>
                     </div>
                   )}
-                </div>
+                </>
               )}
             </div>
           )}
@@ -1930,19 +2009,34 @@ function AdminDashboard() {
               <form className="modal-form">
                 <div className="form-group">
                   <label className="form-label">Institution Name</label>
-                  <input type="text" className="form-input" placeholder="Enter institution name" onChange={(e) => handleInputChange('institutionName', e.target.value)} />
+                  <input type="text" className="form-input" placeholder="Enter institution name" value={formData.institutionName} onChange={(e) => handleInputChange('institutionName', e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Email Address</label>
-                  <input type="email" className="form-input" placeholder="Enter email address" onChange={(e) => handleInputChange('email', e.target.value)} />
+                  <input type="email" className="form-input" placeholder="Enter email address" value={formData.email} onChange={(e) => handleInputChange('email', e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Password</label>
-                  <input type="password" className="form-input" placeholder="Create password" onChange={(e) => handleInputChange('password', e.target.value)} />
+                  <input type="password" className="form-input" placeholder={addOrUpdate ? "Create password" : "Enter password"} value={formData.password} onChange={(e) => handleInputChange('password', e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Portal Expiry Date</label>
-                  <input type="date" className="form-input" onChange={(e) => handleInputChange('portalExpiryDate', e.target.value)} />
+                  <input type="date" className="form-input" value={formData.portalExpiryDate ? (formData.portalExpiryDate instanceof Date ? formData.portalExpiryDate.toISOString().split("T")[0] : String(formData.portalExpiryDate).split("T")[0]) : ""} onChange={(e) => handleInputChange('portalExpiryDate', e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Institution Type</label>
+                  <select className="form-input" value={formData.institutionType} onChange={(e) => handleInputChange('institutionType', e.target.value)}>
+                    <option value="University">University</option>
+                    <option value="Autonomous Institution">Autonomous Institution</option>
+                    <option value="Science & Research">Science & Research</option>
+                    <option value="Engineering & Technology">Engineering & Technology</option>
+                    <option value="Management & Business">Management & Business</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Logo URL</label>
+                  <input type="text" className="form-input" placeholder="Enter logo image URL (optional)" value={formData.logoUrl} onChange={(e) => handleInputChange('logoUrl', e.target.value)} />
                 </div>
               </form>
             </div>
@@ -2028,6 +2122,19 @@ function AdminDashboard() {
                           <span className={`badge ${!isExpired ? 'badge-success' : 'badge-error'}`} style={{ display: 'inline-block' }}>
                             {!isExpired ? 'Active' : 'Expired'}
                           </span>
+                        </div>
+                      </div>
+                      <div className="detail-card">
+                        <div className="detail-label">Institution Type</div>
+                        <div className="detail-value">{selectedClient.institutionType || 'University'}</div>
+                      </div>
+                      <div className="detail-card">
+                        <div className="detail-label">Logo URL</div>
+                        <div className="detail-value" style={{ display: 'flex', alignItems: 'center', gap: '6px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={selectedClient.logoUrl}>
+                          {selectedClient.logoUrl ? (
+                            <img src={selectedClient.logoUrl} alt="Logo" style={{ height: '20px', borderRadius: '2px' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                          ) : null}
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedClient.logoUrl || 'None'}</span>
                         </div>
                       </div>
                     </div>

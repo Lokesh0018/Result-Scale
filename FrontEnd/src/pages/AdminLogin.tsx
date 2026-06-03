@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/auth.css'
 
-const API_URL = (import.meta as any).env.VITE_API_URL;
+const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL;
 
 function AdminLogin() {
   const navigate = useNavigate();
@@ -56,7 +56,7 @@ function AdminLogin() {
       return;
     }
 
-    fetch(`${API_URL}/admin/login`, {
+    fetch(`${VITE_RENDER_API_URL}/admin/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

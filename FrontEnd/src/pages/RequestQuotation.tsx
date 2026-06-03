@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/request-quotation.css'
 
-const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000';
+const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL || 'http://localhost:3000';
 
 function RequestQuotation() {
   const { showToast } = useToast();
@@ -173,7 +173,7 @@ function RequestQuotation() {
     };
 
     try {
-      const response = await fetch(`${API_URL}/contact/quotation-request`, {
+      const response = await fetch(`${VITE_RENDER_API_URL}/contact/quotation-request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,7 +189,11 @@ function RequestQuotation() {
       showToast('Quotation request submitted successfully!', 'success');
       setIsSubmitted(true);
       
-      saveToLocalRequests(requestData);
+      if (data.request) {
+        saveToLocalRequests(data.request);
+      } else {
+        saveToLocalRequests(requestData);
+      }
 
     } catch (err: any) {
       console.warn('API submission failed, using local storage fallback:', err.message);
@@ -212,15 +216,17 @@ function RequestQuotation() {
       }
     }
     const newRequest = {
-      _id: 'req_' + Date.now(),
+      _id: data._id || 'req_' + Date.now(),
       ...data,
-      hostingCost,
-      otpCost,
-      estimatedTotal,
-      status: 'Pending',
-      createdAt: new Date().toISOString(),
+      hostingCost: data.hostingCost ?? hostingCost,
+      otpCost: data.otpCost ?? otpCost,
+      estimatedTotal: data.estimatedTotal ?? estimatedTotal,
+      status: data.status ?? 'Pending',
+      createdAt: data.createdAt ?? new Date().toISOString(),
     };
-    requestsList.unshift(newRequest);
+    if (!requestsList.some((r: any) => r._id === newRequest._id)) {
+      requestsList.unshift(newRequest);
+    }
     localStorage.setItem('resultscale_quotation_requests', JSON.stringify(requestsList));
   };
 
