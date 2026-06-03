@@ -8,7 +8,7 @@ const studentService_1 = require("../service/studentService");
 const logService_1 = require("../service/logService");
 const Client_1 = __importDefault(require("../models/Client"));
 const login = async (req, res) => {
-    const { email, rollNo, clientId } = req.body;
+    const { email, rollNo, clientEmail } = req.body;
     try {
         if (!email || !rollNo) {
             return res.status(400).json({
@@ -16,7 +16,7 @@ const login = async (req, res) => {
                 message: "Email and roll number are required !",
             });
         }
-        const student = await (0, studentService_1.VerifyStudentLogin)(email, rollNo, clientId);
+        const student = await (0, studentService_1.VerifyStudentLogin)(email, rollNo, clientEmail);
         await (0, logService_1.LogActivity)(email, "student", "Login OTP Requested", "auth", `OTP sent for roll number: ${rollNo}`, "success");
         return res.status(200).json({
             success: true,

@@ -45,6 +45,7 @@ function StudentResult() {
           <p className="result-header-subtitle">Academic Year 2024-25</p>
         </div>
 
+
         <div className="result-body">
           <div className="result-student-info">
             <div className="result-info-item">
@@ -58,12 +59,14 @@ function StudentResult() {
             <div className="result-info-item">
               <span className="result-info-label">Program</span>
               <span className="result-info-value">B.Tech</span>
+              <span className="result-info-value">B.Tech</span>
             </div>
             <div className="result-info-item">
               <span className="result-info-label">Semester</span>
               <span className="result-info-value">{mockResult.student.semester}</span>
             </div>
           </div>
+
 
           <h3 className="result-grades-title">Subject-wise Grades</h3>
           <table className="result-grades-table">
@@ -91,6 +94,7 @@ function StudentResult() {
             </tbody>
           </table>
 
+
           <div className="result-summary">
             <div className="result-summary-item">
               <div className="result-summary-value">{mockResult.student.sgpa?.toFixed(2) ?? '0.00'}</div>
@@ -106,6 +110,7 @@ function StudentResult() {
             </div>
           </div>
         </div>
+
 
         <div className="result-footer">
           <button className="btn btn-outline" onClick={handlePrint}>

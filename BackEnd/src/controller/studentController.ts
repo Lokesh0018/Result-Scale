@@ -4,7 +4,7 @@ import { LogActivity } from "../service/logService";
 import Client from "../models/Client";
 
 export const login = async (req: Request, res: Response) => {
-    const { email, rollNo, clientId } = req.body;
+    const { email, rollNo, clientEmail } = req.body;
     try {
         if (!email || !rollNo) {
             return res.status(400).json({
@@ -12,7 +12,7 @@ export const login = async (req: Request, res: Response) => {
                 message: "Email and roll number are required !",
             });
         }
-        const student = await VerifyStudentLogin(email, rollNo, clientId);
+        const student = await VerifyStudentLogin(email, rollNo, clientEmail);
         await LogActivity(email, "student", "Login OTP Requested", "auth", `OTP sent for roll number: ${rollNo}`, "success");
         return res.status(200).json({
             success: true,
