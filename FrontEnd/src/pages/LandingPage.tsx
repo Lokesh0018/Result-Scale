@@ -15,7 +15,7 @@ import '../styles/landing.css'
 import { useTheme } from "../components/ThemeProvider"
 import { useToast } from "../components/Toast"
 
-const API_URL = (import.meta as any).env.VITE_API_URL;
+const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL;
 
 interface FormFields {
   fullName: string
@@ -167,7 +167,7 @@ function LandingPage() {
     setIsSubmitting(true)
 
     try {
-      const response = await fetch(`${API_URL}/contact/submit`, {
+      const response = await fetch(`${VITE_RENDER_API_URL}/contact/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -297,7 +297,7 @@ function LandingPage() {
               <ChevronRight size={20} className="portal-arrow" />
             </Link>
 
-            <Link to="/student/login" className="portal-card">
+            <Link to="/student/select-institution" className="portal-card">
               <div className="portal-icon student">
                 <GraduationCap size={24} />
               </div>

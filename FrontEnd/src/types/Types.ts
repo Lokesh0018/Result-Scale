@@ -1,10 +1,14 @@
 export type Client = {
     id: number,
+    _id?: string,
     institutionName: string,
     email: string,
     students: number,
     status: "active" | "expired",
-    portalExpiryDate: string
+    portalExpiryDate: string,
+    institutionType?: string,
+    logoUrl?: string,
+    isActive?: boolean
 }
 
 export type Student = {

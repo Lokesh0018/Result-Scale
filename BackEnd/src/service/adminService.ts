@@ -8,7 +8,15 @@ export const GetDashboard = async () => {
     return await Client.find().lean();
 }
 
-export const AddClient = async (institutionName: string, email: string, password: string, portalExpiryDate: Date) => {
+export const AddClient = async (
+    institutionName: string,
+    email: string,
+    password: string,
+    portalExpiryDate: Date,
+    institutionType?: string,
+    logoUrl?: string,
+    isActive?: boolean
+) => {
     const existingClient = await Client.findOne({ email });
 
     if (existingClient)
@@ -24,13 +32,25 @@ export const AddClient = async (institutionName: string, email: string, password
         institutionName,
         students: 0,
         portalExpiryDate,
+        institutionType: institutionType || "University",
+        logoUrl: logoUrl || "",
+        isActive: isActive !== undefined ? isActive : true,
     });
 
     const { password: _password, ...clientDto } = client.toObject();
     return clientDto;
 }
 
-export const UpdateClient = async (institutionName: string, oldEmail: string, email: string, password: string, portalExpiryDate: Date) => {
+export const UpdateClient = async (
+    institutionName: string,
+    oldEmail: string,
+    email: string,
+    password: string,
+    portalExpiryDate: Date,
+    institutionType?: string,
+    logoUrl?: string,
+    isActive?: boolean
+) => {
     const client = await Client.findOne({ email: oldEmail });
     if (!client)
         throw new Error("Client not found !");
@@ -48,6 +68,15 @@ export const UpdateClient = async (institutionName: string, oldEmail: string, em
     client.password = password;
     client.institutionName = institutionName;
     client.portalExpiryDate = portalExpiryDate;
+    if (institutionType !== undefined) {
+        client.institutionType = institutionType;
+    }
+    if (logoUrl !== undefined) {
+        client.logoUrl = logoUrl;
+    }
+    if (isActive !== undefined) {
+        client.isActive = isActive;
+    }
     await client.save();
 
     const { password: _password, ...clientDto } = client.toObject();

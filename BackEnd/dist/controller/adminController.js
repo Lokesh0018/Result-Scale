@@ -22,7 +22,7 @@ const getDashboard = async (req, res) => {
 };
 exports.getDashboard = getDashboard;
 const addClient = async (req, res) => {
-    const { institutionName, email, password, portalExpiryDate } = req.body;
+    const { institutionName, email, password, portalExpiryDate, institutionType, logoUrl, isActive } = req.body;
     const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
     const actorRole = req.headers["x-user-role"] || "admin";
     try {
@@ -31,7 +31,7 @@ const addClient = async (req, res) => {
                 success: false,
                 message: "Institution name, email, password, portal expiry date are required !",
             });
-        const client = await (0, adminService_1.AddClient)(institutionName, email, password, new Date(portalExpiryDate));
+        const client = await (0, adminService_1.AddClient)(institutionName, email, password, new Date(portalExpiryDate), institutionType, logoUrl, isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : true);
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Created", "client", `Created client institution: ${institutionName} (${email})`, "success");
         return res.status(201).json({
             success: true,
@@ -60,7 +60,7 @@ const addClient = async (req, res) => {
 exports.addClient = addClient;
 const updateClient = async (req, res) => {
     const oldEmail = req.params.email;
-    const { institutionName, email, password, portalExpiryDate } = req.body;
+    const { institutionName, email, password, portalExpiryDate, institutionType, logoUrl, isActive } = req.body;
     const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
     const actorRole = req.headers["x-user-role"] || "admin";
     try {
@@ -69,7 +69,7 @@ const updateClient = async (req, res) => {
                 success: false,
                 message: "Institution name, email, password, portal expiry date are required !",
             });
-        const client = await (0, adminService_1.UpdateClient)(institutionName, oldEmail, email, password, new Date(portalExpiryDate));
+        const client = await (0, adminService_1.UpdateClient)(institutionName, oldEmail, email, password, new Date(portalExpiryDate), institutionType, logoUrl, isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : undefined);
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Updated", "client", `Updated client institution: ${institutionName} (${email})`, "success");
         return res.status(200).json({
             success: true,

@@ -63,5 +63,20 @@ const clientSchema = new mongoose_1.Schema({
         type: Date,
         required: true,
     },
+    institutionType: {
+        type: String,
+        required: true,
+        default: "University",
+    },
+    logoUrl: {
+        type: String,
+        required: false,
+        default: "",
+    },
+    isActive: {
+        type: Boolean,
+        required: true,
+        default: true,
+    },
 });
 exports.default = mongoose_1.default.model("Client", clientSchema);

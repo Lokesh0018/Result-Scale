@@ -11,8 +11,8 @@ import { useTheme } from "../components/ThemeProvider";
 import { useToast } from '../components/Toast';
 import { Student } from '../types/Types';
 
-const API_URL = (import.meta as any).env.VITE_API_URL;
-
+const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL;
+const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API_URL;
 
 function ClientDashboard() {
   const { showToast } = useToast();
@@ -27,7 +27,7 @@ function ClientDashboard() {
   const clientId = localStorage.getItem("clientId");
   const [addOrUpdate, setAddOrUpdate] = useState(true);
   const [deleteModal, setDeleteModal] = useState(false);
-  const [semester,setSemester] = useState(0);
+  const [semester, setSemester] = useState(0);
   const [clientName, setClientName] = useState(localStorage.getItem("institutionName") || "ABC University");
   const [clientEmail, setClientEmail] = useState(localStorage.getItem("userEmail") || "admin@abcuniversity.edu");
   const [clientExpiry, setClientExpiry] = useState("2025-06-30");
@@ -42,7 +42,7 @@ function ClientDashboard() {
     role: "student",
     semester: 0,
     sgpa: 0,
-    oldEmail:""
+    oldEmail: ""
   });
   const [errors, setErrors] = useState<{
     institutionName?: string,
@@ -67,9 +67,9 @@ function ClientDashboard() {
     .filter(student => {
       const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.rollNo.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       const matchesSemester = filterSemester === 'all' || student.semester === Number(filterSemester);
-      
+
       let matchesSgpa = true;
       if (filterSgpaRange === 'excellent') matchesSgpa = student.sgpa >= 9.0;
       else if (filterSgpaRange === 'verygood') matchesSgpa = student.sgpa >= 7.5 && student.sgpa < 9.0;
@@ -113,36 +113,77 @@ function ClientDashboard() {
     else {
       setDeleteModal(true);
     }
+    handleInputChange("rollNo",student.rollNo);
     handleInputChange("oldEmail", student.email);
+  }
+
+  function convertLastChar(str: string): number {
+    if (!str) return 0;
+    const lastChar = str.at(-1)!;
+    if (/\d/.test(lastChar)) {
+      return Number(lastChar);
+    }
+    const code = lastChar.toLowerCase().charCodeAt(0);
+    if (code >= 97 && code <= 122) {
+      return (code - 97) % 10;
+    }
+    return 0;
   }
 
   useEffect(() => {
     if (activeSection === "dashboard" || activeSection === "students" || activeSection === "settings") {
-      fetch(`${API_URL}/client/dashboard/${clientId}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
+      const fetchDashboard = async () => {
+        try {
+          const [renderRes, railwayRes] = await Promise.all([
+            fetch(`${VITE_RENDER_API_URL}/client/dashboard/${clientId}`),
+            fetch(`${VITE_RAILWAY_API_URL}/client/dashboard/${clientId}`)
+          ]);
+
+          const [renderData, railwayData] = await Promise.all([
+            renderRes.json(),
+            railwayRes.json()
+          ]);
+
+          const renderStudents = renderData.data.students || [];
+          const railwayStudents = railwayData.data.students || [];
+
+          const allStudents = [
+            ...renderStudents,
+            ...railwayStudents
+          ];
+
+          setStudents(allStudents);
+
+          const clientInfo =
+            renderData.data.client ??
+            railwayData.data.client;
+
+          if (clientInfo) {
+            setClientName(clientInfo.institutionName);
+            setClientEmail(clientInfo.email);
+            setClientExpiry(
+              clientInfo.portalExpiryDate?.split("T")[0] || ""
+            );
+
+            localStorage.setItem(
+              "institutionName",
+              clientInfo.institutionName
+            );
+          }
+
+          const totalSemesters = allStudents.reduce(
+            (acc: number, student: Student) =>
+              acc + student.semester,
+            0
+          );
+
+          setSemester(totalSemesters);
+
+        } catch (err: any) {
+          showToast(err.message, "error");
         }
-      }).then(async (res) => {
-        const data = await res.json();
-        if (!res.ok)
-          throw new Error(data.message);
-        return data;
-      }).then((data) => {
-        const studentsList = data.data.students || [];
-        const clientInfo = data.data.client;
-        setStudents(studentsList);
-        if (clientInfo) {
-          setClientName(clientInfo.institutionName);
-          setClientEmail(clientInfo.email);
-          setClientExpiry(clientInfo.portalExpiryDate ? clientInfo.portalExpiryDate.split("T")[0] : "");
-          localStorage.setItem("institutionName", clientInfo.institutionName);
-        }
-        const totalSemesters = studentsList.reduce((acc: number, student: Student) => acc + student.semester, 0);
-        setSemester(totalSemesters);
-      }).catch((err) => {
-        showToast(err.message, 'error');
-      });
+      };
+      fetchDashboard();
     }
   }, [activeSection]);
 
@@ -195,81 +236,152 @@ function ClientDashboard() {
       return;
     }
     if (addOrUpdate) {
-      console.log(formData);
-      fetch(`${API_URL}/client/students`, {
+      const apiUrl =
+        convertLastChar(formData.rollNo) % 2 === 0
+          ? VITE_RENDER_API_URL
+          : VITE_RAILWAY_API_URL;
+
+      fetch(`${apiUrl}/client/students`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
-      }).then(async (res) => {
-        const data = await res.json();
-        if (!res.ok)
-          throw new Error(data.message);
-        return data;
-      }).then((data) => {
-        const updatedStudents = [...students, data.student];
-        setStudents(updatedStudents);
-        const totalSemesters = updatedStudents.reduce((acc, student) => acc + student.semester, 0);
-        setSemester(totalSemesters);
-        showToast(data.message, "success");
-      }).catch((err) => {
-        showToast(err.message, "error");
-      });
+      })
+        .then(async (res) => {
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.message);
+          }
+
+          return data;
+        })
+        .then((data) => {
+          setStudents(prev => {
+            const updated = [...prev, data.student];
+
+            setSemester(
+              updated.reduce(
+                (acc, student) => acc + student.semester,
+                0
+              )
+            );
+
+            return updated;
+          });
+
+          showToast(data.message, "success");
+        })
+        .catch((err) => {
+          showToast(err.message, "error");
+        });
     }
     else {
-      fetch(`${API_URL}/client/students/${formData.oldEmail}`, {
+      const apiUrl =
+        convertLastChar(formData.rollNo) % 2 === 0
+          ? VITE_RENDER_API_URL
+          : VITE_RAILWAY_API_URL;
+
+      fetch(`${apiUrl}/client/students/${formData.oldEmail}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
-      }).then(async (res) => {
-        const data = await res.json();
-        if (!res.ok)
-          throw new Error(data.message);
-        return data;
-      }).then((data) => {
-        const newStudent: Student = data.student;
-        const updatedStudents = [...students.filter((student)=>student.email !== formData.oldEmail), newStudent];
-        setStudents(updatedStudents);
-        const totalSemesters = updatedStudents.reduce((acc, student) => acc + student.semester, 0);
-        setSemester(totalSemesters);
-        showToast(data.message, "success");
-      }).catch((err) => {
-        showToast(err.message, "error");
-      });
+      })
+        .then(async (res) => {
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.message);
+          }
+
+          return data;
+        })
+        .then((data) => {
+          const newStudent: Student = data.student;
+
+          setStudents((prevStudents) => {
+            const updatedStudents = prevStudents.map((student) =>
+              student.email === formData.oldEmail
+                ? newStudent
+                : student
+            );
+
+            setSemester(
+              updatedStudents.reduce(
+                (acc, student) => acc + student.semester,
+                0
+              )
+            );
+
+            return updatedStudents;
+          });
+
+          showToast(data.message, "success");
+        })
+        .catch((err) => {
+          showToast(err.message, "error");
+        });
     }
     setShowModal(false);
   };
 
-  const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    fetch(`${API_URL}/client/students/${formData.oldEmail}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body:JSON.stringify({
-        clientId:clientId
-      })
-    }).then(async (res) => {
+const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
+  e.preventDefault();
+
+  const apiUrl =
+    convertLastChar(formData.rollNo) % 2 === 0
+      ? VITE_RENDER_API_URL
+      : VITE_RAILWAY_API_URL;
+
+  fetch(`${apiUrl}/client/students/${formData.oldEmail}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      clientId,
+    }),
+  })
+    .then(async (res) => {
       const data = await res.json();
-      if (!res.ok)
+
+      if (!res.ok) {
         throw new Error(data.message);
+      }
+
       return data;
-    }).then((data) => {
+    })
+    .then((data) => {
       const deletedStudent: Student = data.student;
-      const updatedStudents = students.filter((student) => student.email !== deletedStudent.email);
-      setStudents(updatedStudents);
-      const totalSemesters = updatedStudents.reduce((acc, student) => acc + student.semester, 0);
-      setSemester(totalSemesters);
+
+      setStudents((prevStudents) => {
+        const updatedStudents = prevStudents.filter(
+          (student) =>
+            student.email !== deletedStudent.email
+        );
+
+        setSemester(
+          updatedStudents.reduce(
+            (acc, student) => acc + student.semester,
+            0
+          )
+        );
+
+        return updatedStudents;
+      });
+
       showToast(data.message, "success");
-    }).catch((err) => {
+    })
+    .catch((err) => {
       showToast(err.message, "error");
+    })
+    .finally(() => {
+      setDeleteModal(false);
     });
-    setDeleteModal(false);
-  };
+};
 
   const parseCsvRows = (csvText: string) => {
     // Remove byte order mark (BOM) if present
@@ -349,8 +461,11 @@ function ClientDashboard() {
       const studentsFromCsv = parseCsvRows(csvText);
 
       const uploadResponses = await Promise.allSettled(
-        studentsFromCsv.map((student) =>
-          fetch(`${API_URL}/client/students`, {
+        studentsFromCsv.map((student) => {
+          const apiUrl = convertLastChar(student.rollNo) % 2 === 0
+          ? VITE_RENDER_API_URL
+          : VITE_RAILWAY_API_URL;
+          return fetch(`${apiUrl}/client/students`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -362,8 +477,8 @@ function ClientDashboard() {
               throw new Error(data.message || `Failed to upload ${student.email}`);
             }
             return data.student as Student;
-          })
-        )
+          });
+        })
       );
 
       const successfulUploads = uploadResponses
@@ -408,7 +523,7 @@ function ClientDashboard() {
     if (clientPassword) {
       payload.password = clientPassword;
     }
-    fetch(`${API_URL}/client/profile/${clientId}`, {
+    fetch(`${VITE_RENDER_API_URL}/client/profile/${clientId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -874,29 +989,29 @@ function ClientDashboard() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                       <div className="form-group">
                         <label className="form-label">Roll Number</label>
-                        <input type="text" className="form-input" placeholder="e.g., 2024CS005"  onChange={(e) => handleInputChange('rollNo', e.target.value)}/>
+                        <input type="text" className="form-input" placeholder="e.g., 2024CS005" onChange={(e) => handleInputChange('rollNo', e.target.value)} />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Student Name</label>
-                        <input type="text" className="form-input" placeholder="Enter full name"  onChange={(e) => handleInputChange('name', e.target.value)} />
+                        <input type="text" className="form-input" placeholder="Enter full name" onChange={(e) => handleInputChange('name', e.target.value)} />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Email Address</label>
-                        <input type="email" className="form-input" placeholder="student@email.com"  onChange={(e) => handleInputChange('email', e.target.value)}/>
+                        <input type="email" className="form-input" placeholder="student@email.com" onChange={(e) => handleInputChange('email', e.target.value)} />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Semester</label>
-                        <input type="text" className="form-input" placeholder="e.g., 4"  onChange={(e) => handleInputChange('semester', e.target.value)}/>
+                        <input type="text" className="form-input" placeholder="e.g., 4" onChange={(e) => handleInputChange('semester', e.target.value)} />
                       </div>
                       <div className="form-group">
                         <label className="form-label">SGPA</label>
-                        <input type="number" step="0.01" className="form-input" placeholder="e.g., 8.5"  onChange={(e) => handleInputChange('sgpa', e.target.value)}/>
+                        <input type="number" step="0.01" className="form-input" placeholder="e.g., 8.5" onChange={(e) => handleInputChange('sgpa', e.target.value)} />
                       </div>
                     </div>
                     <button type="submit" className="btn btn-primary" style={{ marginTop: 'var(--spacing-md)' }} onClick={(e) => {
                       setAddOrUpdate(true);
                       addOrUpdateStudent(e);
-                      }}>
+                    }}>
                       Add Student Result
                     </button>
                   </form>
@@ -940,7 +1055,7 @@ function ClientDashboard() {
                     onChange={(e) => setFilterSemester(e.target.value === 'all' ? 'all' : Number(e.target.value))}
                   >
                     <option value="all">All Semesters</option>
-                    {Array.from(new Set(students.map(s => s.semester))).sort((a,b)=>a-b).map(sem => (
+                    {Array.from(new Set(students.map(s => s.semester))).sort((a, b) => a - b).map(sem => (
                       <option key={sem} value={sem}>Semester {sem}</option>
                     ))}
                   </select>
@@ -1011,10 +1126,10 @@ function ClientDashboard() {
                       <td>{student.semester}</td>
                       <td>{student.sgpa.toFixed(1)}</td>
                       <td>
-                        <button className="action-btn edit" onClick={() => changeStudent(student,true)}>
+                        <button className="action-btn edit" onClick={() => changeStudent(student, true)}>
                           <Pencil size={14} />
                         </button>
-                        <button className="action-btn delete" onClick={() => changeStudent(student,false)}>
+                        <button className="action-btn delete" onClick={() => changeStudent(student, false)}>
                           <Trash2 size={14} />
                         </button>
                       </td>
@@ -1193,25 +1308,27 @@ function ClientDashboard() {
             </div>
             <div className="modal-body">
               <form className="modal-form">
-                <div className="form-group">
+                {
+                  (addOrUpdate) && <div className="form-group">
                   <label className="form-label">Roll Number</label>
-                  <input type="text" className="form-input" placeholder="Enter roll number"  onChange={(e) => handleInputChange('rollNo', e.target.value)} />
+                  <input type="text" className="form-input" placeholder="Enter roll number" onChange={(e) => handleInputChange('rollNo', e.target.value)} />
                 </div>
+                }
                 <div className="form-group">
                   <label className="form-label">Student Name</label>
-                  <input type="text" className="form-input" placeholder="Enter full name"  onChange={(e) => handleInputChange('name', e.target.value)} />
+                  <input type="text" className="form-input" placeholder="Enter full name" onChange={(e) => handleInputChange('name', e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Email Address</label>
-                  <input type="email" className="form-input" placeholder="Enter email address"  onChange={(e) => handleInputChange('email', e.target.value)} />
+                  <input type="email" className="form-input" placeholder="Enter email address" onChange={(e) => handleInputChange('email', e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Semester</label>
-                  <input type="number" className="form-input" placeholder="Enter semester"  onChange={(e) => handleInputChange('semester', e.target.value)} />
+                  <input type="number" className="form-input" placeholder="Enter semester" onChange={(e) => handleInputChange('semester', e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">SGPA</label>
-                  <input type="number" className="form-input" placeholder="Enter sgpa"  onChange={(e) => handleInputChange('sgpa', e.target.value)}/>
+                  <input type="number" className="form-input" placeholder="Enter sgpa" onChange={(e) => handleInputChange('sgpa', e.target.value)} />
                 </div>
               </form>
             </div>

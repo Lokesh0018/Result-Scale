@@ -25,7 +25,7 @@ export const getDashboard = async (req: Request, res: Response) => {
 }
 
 export const addClient = async (req: Request, res: Response) => {
-    const { institutionName, email, password, portalExpiryDate } = req.body;
+    const { institutionName, email, password, portalExpiryDate, institutionType, logoUrl, isActive } = req.body;
     const actorEmail = req.headers["x-user-email"] as string || "admin@resultscale.com";
     const actorRole = req.headers["x-user-role"] as string || "admin";
     try {
@@ -34,7 +34,15 @@ export const addClient = async (req: Request, res: Response) => {
                 success: false,
                 message: "Institution name, email, password, portal expiry date are required !",
             });
-        const client = await AddClient(institutionName, email, password, new Date(portalExpiryDate));
+        const client = await AddClient(
+            institutionName,
+            email,
+            password,
+            new Date(portalExpiryDate),
+            institutionType,
+            logoUrl,
+            isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : true
+        );
         await LogActivity(actorEmail, actorRole, "Client Created", "client", `Created client institution: ${institutionName} (${email})`, "success");
         return res.status(201).json({
             success: true,
@@ -63,7 +71,7 @@ export const addClient = async (req: Request, res: Response) => {
 
 export const updateClient = async (req: Request, res: Response) => {
     const oldEmail = req.params.email as string;
-    const { institutionName, email, password, portalExpiryDate } = req.body;
+    const { institutionName, email, password, portalExpiryDate, institutionType, logoUrl, isActive } = req.body;
     const actorEmail = req.headers["x-user-email"] as string || "admin@resultscale.com";
     const actorRole = req.headers["x-user-role"] as string || "admin";
     try {
@@ -72,7 +80,16 @@ export const updateClient = async (req: Request, res: Response) => {
                 success: false,
                 message: "Institution name, email, password, portal expiry date are required !",
             });
-        const client = await UpdateClient(institutionName, oldEmail, email, password, new Date(portalExpiryDate));
+        const client = await UpdateClient(
+            institutionName,
+            oldEmail,
+            email,
+            password,
+            new Date(portalExpiryDate),
+            institutionType,
+            logoUrl,
+            isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : undefined
+        );
         await LogActivity(actorEmail, actorRole, "Client Updated", "client", `Updated client institution: ${institutionName} (${email})`, "success");
         return res.status(200).json({
             success: true,
