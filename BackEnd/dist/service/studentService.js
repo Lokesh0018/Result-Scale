@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.VerifyOtp = exports.VerifyStudentLogin = void 0;
 const Student_1 = __importDefault(require("../models/Student"));
 const clientService_1 = require("./clientService");
+const rollNo_1 = require("../utils/rollNo");
 const sendOtp = async (email, otp) => {
     try {
         const response = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -43,12 +44,11 @@ const generateOtp = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
 };
 const VerifyStudentLogin = async (email, rollNo, clientEmail) => {
-    const student = await Student_1.default.findOne({ email });
+    (0, rollNo_1.assertRollNoBelongsToServer)(rollNo);
+    const student = await Student_1.default.findOne({ email: email.toLowerCase(), rollNo });
     if (!student)
         throw new Error("Student not found!");
-    if (student.rollNo !== rollNo)
-        throw new Error("Invalid credentials");
-    const client = await (0, clientService_1.findClientByIdentifier)(student.clientId.toString());
+    const client = await (0, clientService_1.findClientByIdentifier)(student.clientEmail);
     if (!client || !client.isActive) {
         throw new Error("Portal Access Expired !");
     }
@@ -71,9 +71,10 @@ const VerifyStudentLogin = async (email, rollNo, clientEmail) => {
 };
 exports.VerifyStudentLogin = VerifyStudentLogin;
 const VerifyOtp = async (email, otp) => {
-    const student = await Student_1.default.findOne({ email });
+    const student = await Student_1.default.findOne({ email: email.toLowerCase() });
     if (!student)
         throw new Error("Student not found!");
+    (0, rollNo_1.assertRollNoBelongsToServer)(student.rollNo);
     if (!student.otpExpiry ||
         student.otpExpiry < new Date()) {
         student.otp = "0";

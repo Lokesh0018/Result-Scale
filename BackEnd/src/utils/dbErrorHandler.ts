@@ -70,9 +70,9 @@ export const checkAndLogDuplicate = async (
 
   // 2. Verify whether the record actually exists before triggering validation
   const query: Record<string, any> = {};
-  if (duplicateField === "rollNo" && docData.clientId) {
+  if (duplicateField === "rollNo" && docData.clientEmail) {
     query.rollNo = duplicateValue;
-    query.clientId = docData.clientId;
+    query.clientEmail = docData.clientEmail;
   } else {
     query[duplicateField] = typeof duplicateValue === "string" ? duplicateValue.toLowerCase() : duplicateValue;
   }

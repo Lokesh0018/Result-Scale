@@ -1,13 +1,11 @@
 import mongoose, { Schema } from "mongoose";
 import { IStudent } from "../interface/IUser";
-import Client from "./Client";
-
 const studentSchema = new Schema<IStudent>({
-    clientId: {
-        type: Schema.Types.ObjectId,
-        ref: Client,
+    clientEmail: {
+        type: String,
         required: true,
-        index:true,
+        lowercase: true,
+        index: true,
     },
 
     name: {

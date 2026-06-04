@@ -8,12 +8,12 @@ export const LogActivity = async (
   details: string,
   status: "success" | "failure"
 ) => {
-  // 1. Skip logging on Railway environment
-  if (process.env.IS_RAILWAY === "true") {
+  // Activity logs are owned by MongoDB/Railway. Do not write them on Render.
+  if (process.env.SERVER_TYPE !== "railway") {
     return;
   }
 
-  // 2. Skip student logs to reduce memory/disk usage
+  // Skip student logs to reduce memory/disk usage
   if (userRole === "student" || category === "student") {
     return;
   }

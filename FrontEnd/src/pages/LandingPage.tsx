@@ -15,7 +15,7 @@ import '../styles/landing.css'
 import { useTheme } from "../components/ThemeProvider"
 import { useToast } from "../components/Toast"
 
-const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API_URL;
+const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API || (import.meta as any).env.VITE_RENDER_API_URL;
 
 interface FormFields {
   fullName: string
@@ -167,7 +167,7 @@ function LandingPage() {
     setIsSubmitting(true)
 
     try {
-      const response = await fetch(`${VITE_RAILWAY_API_URL}/contact/submit`, {
+      const response = await fetch(`${VITE_RENDER_API_URL}/contact/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

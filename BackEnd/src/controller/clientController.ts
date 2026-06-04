@@ -34,7 +34,7 @@ export const addStudent = async (req: Request, res: Response) => {
         if (!normalizedClientEmail || !name || !normalizedEmail || !rollNo || semester === undefined || sgpa === undefined)
             return res.status(400).json({
                 success: false,
-                message: "Client id, name, email, roll no, semester are required !",
+                message: "Client email, name, email, roll no, semester are required !",
             });
         const student = await AddStudent(normalizedClientEmail, name, normalizedEmail, rollNo, semester, sgpa);
         await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Created", "student", `Added student: ${name} (${rollNo}, Sem: ${semester}, SGPA: ${sgpa})`, "success");
@@ -47,10 +47,7 @@ export const addStudent = async (req: Request, res: Response) => {
     catch (err: any) {
         await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Creation Failed", "student", `Failed to add student ${name || ""}: ${err.message}`, "failure");
         
-        const client = await findClientByIdentifier(normalizedClientEmail);
-        const clientId = client ? client._id : undefined;
-
-        const { isDuplicate, message } = await checkAndLogDuplicate(err, Student, { email: normalizedEmail, rollNo, clientId });
+        const { isDuplicate, message } = await checkAndLogDuplicate(err, Student, { email: normalizedEmail, rollNo, clientEmail: normalizedClientEmail });
         if (isDuplicate) {
             return res.status(409).json({
                 success: false,
@@ -77,7 +74,7 @@ export const updateStudent = async (req: Request, res: Response) => {
         if (!normalizedOldEmail || !normalizedClientEmail || !name || !normalizedEmail || !rollNo || !semester)
             return res.status(400).json({
                 success: false,
-                message: "Client id, name, email, roll no, semester are required !",
+                message: "Client email, name, email, roll no, semester are required !",
             });
 
         const student = await UpdateStudent(normalizedOldEmail, normalizedClientEmail, name, normalizedEmail, rollNo, semester, sgpa);
@@ -91,14 +88,11 @@ export const updateStudent = async (req: Request, res: Response) => {
     catch (err: any) {
         await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Update Failed", "student", `Failed to update student ${oldEmail}: ${err.message}`, "failure");
         
-        const client = await findClientByIdentifier(normalizedClientEmail);
-        const clientId = client ? client._id : undefined;
-
         // Find student by oldEmail to check self-update
-        const existingStudentForId = await Student.findOne({ email: normalizedOldEmail, clientId }).lean();
+        const existingStudentForId = await Student.findOne({ email: normalizedOldEmail, clientEmail: normalizedClientEmail }).lean();
         const student_id = existingStudentForId ? existingStudentForId._id : undefined;
 
-        const { isDuplicate, message } = await checkAndLogDuplicate(err, Student, { email: normalizedEmail, rollNo, clientId, _id: student_id });
+        const { isDuplicate, message } = await checkAndLogDuplicate(err, Student, { email: normalizedEmail, rollNo, clientEmail: normalizedClientEmail, _id: student_id });
         if (isDuplicate) {
             return res.status(409).json({
                 success: false,
@@ -209,7 +203,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         if (!normalizedClientEmail || !institutionName || !normalizedEmail) {
             return res.status(400).json({
                 success: false,
-                message: "Client id, institution name, and email are required !",
+                message: "Client email, institution name, and email are required !",
             });
         }
         const client = await UpdateProfile(normalizedClientEmail, institutionName, normalizedEmail, password);

@@ -13,7 +13,7 @@ export type Client = {
 
 export type Student = {
     _id: string,
-    clientId: string,
+    clientEmail: string,
     name: string,
     email: string,
     rollNo: string,

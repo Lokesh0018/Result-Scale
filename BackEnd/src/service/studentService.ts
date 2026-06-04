@@ -1,6 +1,6 @@
 import Student from "../models/Student";
-import Client from "../models/Client";
 import { findClientByIdentifier } from "./clientService";
+import { assertRollNoBelongsToServer } from "../utils/rollNo";
 
 const sendOtp = async (email: string, otp: string) => {
     try {
@@ -50,15 +50,14 @@ const generateOtp = (): string => {
 };
 
 export const VerifyStudentLogin = async (email: string, rollNo: string, clientEmail?: string) => {
-    const student = await Student.findOne({ email });
+    assertRollNoBelongsToServer(rollNo);
+
+    const student = await Student.findOne({ email: email.toLowerCase(), rollNo });
 
     if (!student)
         throw new Error("Student not found!");
 
-    if (student.rollNo !== rollNo)
-        throw new Error("Invalid credentials");
-
-    const client = await findClientByIdentifier(student.clientId.toString());
+    const client = await findClientByIdentifier(student.clientEmail);
     if (!client || !client.isActive) {
         throw new Error("Portal Access Expired !");
     }
@@ -95,10 +94,12 @@ export const VerifyStudentLogin = async (email: string, rollNo: string, clientEm
 
 export const VerifyOtp = async (email: string, otp: string) => {
 
-    const student = await Student.findOne({ email });
+    const student = await Student.findOne({ email: email.toLowerCase() });
 
     if (!student)
         throw new Error("Student not found!");
+
+    assertRollNoBelongsToServer(student.rollNo);
 
     if (
         !student.otpExpiry ||
