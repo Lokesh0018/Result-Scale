@@ -954,27 +954,27 @@ function AdminDashboard() {
 
                   <div className="stat-card">
                     <div className="stat-card-header">
-                      <span className="stat-card-title">Server 1</span>
+                      <span className="stat-card-title">Total Students (Firestore)</span>
                       <div className="stat-card-icon green">
                         <Server size={20} />
                       </div>
                     </div>
                     <div className="stat-card-value">{renderStudents.length || 0}</div>
                     <div className="stat-card-change">
-                      Students in Render
+                      ODD Roll Number Students
                     </div>
                   </div>
 
 
                   <div className="stat-card">
                     <div className="stat-card-header">
-                      <span className="stat-card-title">Server 2</span>
+                      <span className="stat-card-title">Total Students (MongoDB)</span>
                       <div className="stat-card-icon orange">
                         <Server size={20} />
                       </div>
                     </div>
                     <div className="stat-card-value">{railwayStudents.length || 0}</div>
-                    <div className="stat-card-change">Students in Railway</div>
+                    <div className="stat-card-change">EVEN Roll Number Students</div>
                   </div>
 
                   <div className="stat-card">

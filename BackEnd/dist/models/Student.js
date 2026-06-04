@@ -38,7 +38,6 @@ const studentSchema = new mongoose_1.Schema({
     clientEmail: {
         type: String,
         required: true,
-        lowercase: true,
         index: true,
     },
     name: {

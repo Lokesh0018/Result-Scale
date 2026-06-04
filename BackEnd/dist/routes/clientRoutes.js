@@ -74,9 +74,46 @@ exports.router.post("/internal/delete-students/:clientEmail", async (req, res) =
         return res.status(500).json({ success: false, message: err.message });
     }
 });
-exports.router.post("/internal/migrate-client-ids", async (_req, res) => {
-    return res.status(410).json({
-        success: false,
-        message: "Legacy student-id migration endpoint is retired. Students now use clientEmail as the foreign key.",
-    });
+exports.router.post("/internal/migrate-client-ids", async (req, res) => {
+    try {
+        if (process.env.SERVER_TYPE !== "railway") {
+            return res.status(400).json({ success: false, message: "Migration must be run on the Railway server." });
+        }
+        // 1. Fetch all local clients on Railway (legacy)
+        const localClients = await Client_1.default.find().lean();
+        let migratedCount = 0;
+        const details = [];
+        for (const localClient of localClients) {
+            const email = localClient.email.toLowerCase();
+            // Update all students pointing to localClient._id to use clientEmail using raw collection to bypass Mongoose schema restrictions
+            const updateResult = await Student_1.default.collection.updateMany({
+                $or: [
+                    { clientId: localClient._id },
+                    { clientId: localClient._id.toString() }
+                ]
+            }, {
+                $set: { clientEmail: email },
+                $unset: { clientId: "" }
+            });
+            details.push({
+                email,
+                clientId: localClient._id,
+                updatedStudents: updateResult.modifiedCount
+            });
+            migratedCount++;
+        }
+        // 2. Purge client records on Railway
+        const deleteResult = await Client_1.default.deleteMany({});
+        return res.status(200).json({
+            success: true,
+            message: `Successfully migrated ${migratedCount} clients' student records and purged Railway client collection.`,
+            migratedClientsCount: migratedCount,
+            purgedLocalClientsCount: deleteResult.deletedCount,
+            details
+        });
+    }
+    catch (err) {
+        console.error("Migration error:", err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
 });

@@ -108,18 +108,27 @@ export const DeleteClient = async (email: string) => {
     const existingClient = await Client.findOne({ email: normalizedEmail });
     if (!existingClient)
         throw new Error("Client not found !");
+    
+    // Delete Client from Firestore (local on Render)
+    await Client.deleteOne({ email: normalizedEmail });
+
+    // Delete odd students locally on Render and even students on Railway using Promise.all
     const railwayUrl = process.env.RAILWAY_API_URL || "http://localhost:3000";
-    await Promise.all([
-        Client.deleteOne({ email: normalizedEmail }),
-        Student.deleteMany({ clientEmail: normalizedEmail }),
-        fetch(`${railwayUrl}/client/internal/delete-students/${encodeURIComponent(normalizedEmail)}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" }
-        }).catch((err) => {
-            console.error("Failed to propagate student deletion to Railway:", err);
-            return null;
-        })
-    ]);
+    try {
+        await Promise.all([
+            Student.deleteMany({ clientEmail: normalizedEmail }),
+            fetch(`${railwayUrl}/client/internal/delete-students/${normalizedEmail}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" }
+            }).then(async (res) => {
+                if (!res.ok) {
+                    console.error(`Railway deletion failed: ${res.statusText}`);
+                }
+            })
+        ]);
+    } catch (err) {
+        console.error("Error deleting client students across databases:", err);
+    }
 
     const { password: _password, ...clientDto } = existingClient.toObject();
     return {

@@ -106,7 +106,18 @@ export const AddStudent = async (identifier: string, name: string, email: string
     sgpa,
   });
 
-  if (process.env.SERVER_TYPE !== "railway") {
+  if (process.env.SERVER_TYPE === "railway") {
+    try {
+      const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
+      await fetch(`${renderUrl}/client/internal/update-student-count/${encodeURIComponent(normalizedClientEmail)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ increment: 1 }),
+      });
+    } catch (err) {
+      console.error("Failed to update student count on Render:", err);
+    }
+  } else {
     await Client.findOneAndUpdate({ email: normalizedClientEmail }, { $inc: { students: 1 } });
   }
 
@@ -161,7 +172,18 @@ export const DeleteStudent = async (email: string, identifier: string) => {
 
   await Student.deleteOne({ email: normalizedEmail, clientEmail: normalizedClientEmail });
 
-  if (process.env.SERVER_TYPE !== "railway") {
+  if (process.env.SERVER_TYPE === "railway") {
+    try {
+      const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
+      await fetch(`${renderUrl}/client/internal/update-student-count/${encodeURIComponent(normalizedClientEmail)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ increment: -1 }),
+      });
+    } catch (err) {
+      console.error("Failed to update student count on Render:", err);
+    }
+  } else {
     await Client.findOneAndUpdate({ email: normalizedClientEmail }, { $inc: { students: -1 } });
   }
 

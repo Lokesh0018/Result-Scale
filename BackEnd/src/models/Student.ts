@@ -1,10 +1,10 @@
 import mongoose, { Schema } from "mongoose";
 import { IStudent } from "../interface/IUser";
+
 const studentSchema = new Schema<IStudent>({
     clientEmail: {
         type: String,
         required: true,
-        lowercase: true,
         index: true,
     },
 

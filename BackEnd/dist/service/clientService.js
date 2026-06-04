@@ -106,7 +106,20 @@ const AddStudent = async (identifier, name, email, rollNo, semester, sgpa) => {
         semester,
         sgpa,
     });
-    if (process.env.SERVER_TYPE !== "railway") {
+    if (process.env.SERVER_TYPE === "railway") {
+        try {
+            const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
+            await fetch(`${renderUrl}/client/internal/update-student-count/${encodeURIComponent(normalizedClientEmail)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ increment: 1 }),
+            });
+        }
+        catch (err) {
+            console.error("Failed to update student count on Render:", err);
+        }
+    }
+    else {
         await Client_1.default.findOneAndUpdate({ email: normalizedClientEmail }, { $inc: { students: 1 } });
     }
     return student;
@@ -155,7 +168,20 @@ const DeleteStudent = async (email, identifier) => {
         throw new Error("Student not found !");
     (0, rollNo_1.assertRollNoBelongsToServer)(existingStudent.rollNo);
     await Student_1.default.deleteOne({ email: normalizedEmail, clientEmail: normalizedClientEmail });
-    if (process.env.SERVER_TYPE !== "railway") {
+    if (process.env.SERVER_TYPE === "railway") {
+        try {
+            const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
+            await fetch(`${renderUrl}/client/internal/update-student-count/${encodeURIComponent(normalizedClientEmail)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ increment: -1 }),
+            });
+        }
+        catch (err) {
+            console.error("Failed to update student count on Render:", err);
+        }
+    }
+    else {
         await Client_1.default.findOneAndUpdate({ email: normalizedClientEmail }, { $inc: { students: -1 } });
     }
     return existingStudent;
