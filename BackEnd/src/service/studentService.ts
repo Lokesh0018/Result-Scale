@@ -1,5 +1,6 @@
 import Student from "../models/Student";
 import Client from "../models/Client";
+import { findClientByIdentifier } from "./clientService";
 
 const sendOtp = async (email: string, otp: string) => {
     try {
@@ -57,7 +58,7 @@ export const VerifyStudentLogin = async (email: string, rollNo: string, clientEm
     if (student.rollNo !== rollNo)
         throw new Error("Invalid credentials");
 
-    const client = await Client.findById(student.clientId);
+    const client = await findClientByIdentifier(student.clientId.toString());
     if (!client || !client.isActive) {
         throw new Error("Portal Access Expired !");
     }

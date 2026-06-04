@@ -674,37 +674,21 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
       payload.password = clientPassword;
     }
 
-    const urls = [
-      VITE_RENDER_API_URL,
-      VITE_RAILWAY_API_URL
-    ];
-
-    Promise.allSettled(
-      urls.map((url) =>
-        fetch(`${url}/client/profile/${localStorage.getItem("userEmail") || clientEmail}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "X-User-Email": localStorage.getItem("userEmail") || clientEmail,
-            "X-User-Role": localStorage.getItem("userRole") || "client"
-          },
-          body: JSON.stringify(payload),
-        }).then(async (res) => {
-          const data = await res.json();
-          if (!res.ok) {
-            throw new Error(data.message || "Failed to update profile");
-          }
-          return data;
-        })
-      )
-    ).then((results) => {
-      const successful = results.find(r => r.status === "fulfilled");
-      if (!successful) {
-        const firstError = results.find(r => r.status === "rejected") as PromiseRejectedResult;
-        throw new Error(firstError.reason.message || "Failed to update profile on all servers");
+    fetch(`${VITE_RENDER_API_URL}/client/profile/${localStorage.getItem("userEmail") || clientEmail}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Email": localStorage.getItem("userEmail") || clientEmail,
+        "X-User-Role": localStorage.getItem("userRole") || "client"
+      },
+      body: JSON.stringify(payload),
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to update profile");
       }
-
-      const data = (successful as PromiseFulfilledResult<any>).value;
+      return data;
+    }).then((data) => {
       showToast("Profile settings updated successfully!", "success");
       setClientPassword("");
       if (data.client) {

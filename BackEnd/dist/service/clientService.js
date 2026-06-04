@@ -3,13 +3,27 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UpdateProfile = exports.UpdatePassword = exports.GetStudents = exports.DeleteStudent = exports.UpdateStudent = exports.AddStudent = exports.GetDashboard = void 0;
+exports.UpdateProfile = exports.UpdatePassword = exports.GetStudents = exports.DeleteStudent = exports.UpdateStudent = exports.AddStudent = exports.GetDashboard = exports.findClientByIdentifier = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
 const Client_1 = __importDefault(require("../models/Client"));
 const Student_1 = __importDefault(require("../models/Student"));
 const findClientByIdentifier = async (identifier) => {
     if (!identifier)
         return null;
+    if (process.env.SERVER_TYPE === "railway") {
+        try {
+            const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
+            const response = await fetch(`${renderUrl}/client/internal/lookup/${identifier}`);
+            if (!response.ok)
+                return null;
+            const data = await response.json();
+            return data.client;
+        }
+        catch (error) {
+            console.error("Error in railway findClientByIdentifier:", error);
+            return null;
+        }
+    }
     const normalized = identifier.toLowerCase();
     return await Client_1.default.findOne({
         $or: [
@@ -18,8 +32,9 @@ const findClientByIdentifier = async (identifier) => {
         ]
     });
 };
+exports.findClientByIdentifier = findClientByIdentifier;
 const GetDashboard = async (identifier) => {
-    const client = await findClientByIdentifier(identifier);
+    const client = await (0, exports.findClientByIdentifier)(identifier);
     if (!client)
         throw new Error("Client not found !");
     const totalStudents = await Student_1.default.countDocuments({ clientId: client._id });
@@ -92,7 +107,7 @@ const AddStudent = async (identifier, name, email, rollNo, semester, sgpa) => {
     const existingStudent = await Student_1.default.findOne({ email: normalizedEmail });
     if (existingStudent)
         throw new Error(`Already Exists with Email ${normalizedEmail}`);
-    const client = await findClientByIdentifier(identifier);
+    const client = await (0, exports.findClientByIdentifier)(identifier);
     if (!client)
         throw new Error("Client not found !");
     // Pre-check roll number uniqueness within the client's institution
@@ -108,14 +123,24 @@ const AddStudent = async (identifier, name, email, rollNo, semester, sgpa) => {
         semester,
         sgpa,
     });
-    await Client_1.default.findByIdAndUpdate(client._id, { $inc: { students: 1 } });
+    if (process.env.SERVER_TYPE === "railway") {
+        const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
+        await fetch(`${renderUrl}/client/internal/update-student-count/${client._id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ increment: 1 })
+        });
+    }
+    else {
+        await Client_1.default.findByIdAndUpdate(client._id, { $inc: { students: 1 } });
+    }
     return student;
 };
 exports.AddStudent = AddStudent;
 const UpdateStudent = async (oldEmail, identifier, name, email, rollNo, semester, sgpa) => {
     const normalizedOldEmail = oldEmail.toLowerCase();
     const normalizedEmail = email.toLowerCase();
-    const client = await findClientByIdentifier(identifier);
+    const client = await (0, exports.findClientByIdentifier)(identifier);
     if (!client)
         throw new Error("Client not found !");
     const student = await Student_1.default.findOne({ email: normalizedOldEmail, clientId: client._id });
@@ -143,7 +168,7 @@ const UpdateStudent = async (oldEmail, identifier, name, email, rollNo, semester
 exports.UpdateStudent = UpdateStudent;
 const DeleteStudent = async (email, identifier) => {
     const normalizedEmail = email.toLowerCase();
-    const client = await findClientByIdentifier(identifier);
+    const client = await (0, exports.findClientByIdentifier)(identifier);
     if (!client)
         throw new Error("Client not found !");
     const existingStudent = await Student_1.default.findOne({ email: normalizedEmail, clientId: client._id });
@@ -153,12 +178,22 @@ const DeleteStudent = async (email, identifier) => {
         email: normalizedEmail,
         clientId: client._id
     });
-    await Client_1.default.findByIdAndUpdate(client._id, { $inc: { students: -1 } });
+    if (process.env.SERVER_TYPE === "railway") {
+        const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
+        await fetch(`${renderUrl}/client/internal/update-student-count/${client._id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ increment: -1 })
+        });
+    }
+    else {
+        await Client_1.default.findByIdAndUpdate(client._id, { $inc: { students: -1 } });
+    }
     return existingStudent;
 };
 exports.DeleteStudent = DeleteStudent;
 const GetStudents = async (identifier, page, limit, search, semester, sgpaRange, sortBy, sortOrder) => {
-    const client = await findClientByIdentifier(identifier);
+    const client = await (0, exports.findClientByIdentifier)(identifier);
     if (!client)
         throw new Error("Client not found !");
     const students = await Student_1.default.find({ clientId: client._id }).lean();
@@ -178,11 +213,14 @@ const UpdatePassword = async (email, password) => {
     client.password = password;
     await client.save();
     const { password: _password, ...clientDto } = client.toObject();
-    return clientDto;
+    return {
+        ...clientDto,
+        _id: client._id.toString()
+    };
 };
 exports.UpdatePassword = UpdatePassword;
 const UpdateProfile = async (identifier, institutionName, email, password) => {
-    const client = await findClientByIdentifier(identifier);
+    const client = await (0, exports.findClientByIdentifier)(identifier);
     if (!client)
         throw new Error("Client not found !");
     const normalizedEmail = email.toLowerCase();
@@ -198,7 +236,22 @@ const UpdateProfile = async (identifier, institutionName, email, password) => {
     }
     await client.save();
     await Student_1.default.updateMany({ clientId: client._id }, { institutionName });
+    // Propagate to Railway
+    try {
+        const railwayUrl = process.env.RAILWAY_API_URL || "http://localhost:3000";
+        await fetch(`${railwayUrl}/client/internal/update-students-institution/${client._id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ institutionName })
+        });
+    }
+    catch (err) {
+        console.error("Failed to propagate institution name update to Railway:", err);
+    }
     const { password: _password, ...clientDto } = client.toObject();
-    return clientDto;
+    return {
+        ...clientDto,
+        _id: client._id.toString()
+    };
 };
 exports.UpdateProfile = UpdateProfile;

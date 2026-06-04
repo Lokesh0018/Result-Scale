@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Admin from "../models/Admin";
 import Client from "../models/Client";
 import Student from "../models/Student";
@@ -32,7 +33,10 @@ export const AddClient = async (
     if (portalExpiryDate.getTime() < startOfToday.getTime())
         throw new Error("Date was Expired !");
 
+    const clientId = new mongoose.Types.ObjectId();
+
     const client = await Client.create({
+        _id: clientId,
         email: normalizedEmail,
         password,
         role: "client",
@@ -45,7 +49,10 @@ export const AddClient = async (
     });
 
     const { password: _password, ...clientDto } = client.toObject();
-    return clientDto;
+    return {
+        ...clientDto,
+        _id: client._id.toString()
+    };
 }
 
 export const UpdateClient = async (
@@ -94,7 +101,10 @@ export const UpdateClient = async (
     await client.save();
 
     const { password: _password, ...clientDto } = client.toObject();
-    return clientDto;
+    return {
+        ...clientDto,
+        _id: client._id.toString()
+    };
 }
 
 export const DeleteClient = async (email: string) => {
@@ -104,8 +114,23 @@ export const DeleteClient = async (email: string) => {
         throw new Error("Client not found !");
     await Client.deleteOne({ email: normalizedEmail });
     await Student.deleteMany({ clientId: existingClient._id });
+
+    // Propagate student deletion to Railway
+    try {
+        const railwayUrl = process.env.RAILWAY_API_URL || "http://localhost:3000";
+        await fetch(`${railwayUrl}/client/internal/delete-students/${existingClient._id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+        });
+    } catch (err) {
+        console.error("Failed to propagate student deletion to Railway:", err);
+    }
+
     const { password: _password, ...clientDto } = existingClient.toObject();
-    return clientDto;
+    return {
+        ...clientDto,
+        _id: existingClient._id.toString()
+    };
 }
 
 export const GetStudents = async () => {

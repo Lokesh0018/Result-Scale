@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express"
-import { GetDashboard, AddStudent, UpdateStudent, DeleteStudent, GetStudents, UpdatePassword, UpdateProfile } from "../service/clientService"
+import { GetDashboard, AddStudent, UpdateStudent, DeleteStudent, GetStudents, UpdatePassword, UpdateProfile, findClientByIdentifier } from "../service/clientService"
 import { LogActivity } from "../service/logService"
 import Client from "../models/Client"
 import Student from "../models/Student"
@@ -47,7 +47,7 @@ export const addStudent = async (req: Request, res: Response) => {
     catch (err: any) {
         await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Creation Failed", "student", `Failed to add student ${name || ""}: ${err.message}`, "failure");
         
-        const client = await Client.findOne({ email: normalizedClientEmail });
+        const client = await findClientByIdentifier(normalizedClientEmail);
         const clientId = client ? client._id : undefined;
 
         const { isDuplicate, message } = await checkAndLogDuplicate(err, Student, { email: normalizedEmail, rollNo, clientId });
@@ -91,7 +91,7 @@ export const updateStudent = async (req: Request, res: Response) => {
     catch (err: any) {
         await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Update Failed", "student", `Failed to update student ${oldEmail}: ${err.message}`, "failure");
         
-        const client = await Client.findOne({ email: normalizedClientEmail });
+        const client = await findClientByIdentifier(normalizedClientEmail);
         const clientId = client ? client._id : undefined;
 
         // Find student by oldEmail to check self-update
@@ -223,7 +223,7 @@ export const updateProfile = async (req: Request, res: Response) => {
     catch (err: any) {
         await LogActivity(actorEmail.toLowerCase(), actorRole, "Profile Update Failed", "client", `Failed to update client profile: ${err.message}`, "failure");
         
-        const client = await Client.findOne({ email: normalizedClientEmail }).lean();
+        const client = await findClientByIdentifier(normalizedClientEmail);
         const client_id = client ? client._id : undefined;
 
         const { isDuplicate, message } = await checkAndLogDuplicate(err, Client, { email: normalizedEmail, _id: client_id });

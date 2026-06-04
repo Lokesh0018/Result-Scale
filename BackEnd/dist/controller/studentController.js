@@ -91,9 +91,20 @@ const verifyOtp = async (req, res) => {
 exports.verifyOtp = verifyOtp;
 const getActiveInstitutions = async (req, res) => {
     try {
-        const institutions = await Client_1.default.find()
-            .select("-password")
-            .lean();
+        let institutions;
+        if (process.env.SERVER_TYPE === "railway") {
+            const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
+            const response = await fetch(`${renderUrl}/student/institutions`);
+            if (!response.ok)
+                throw new Error("Failed to fetch institutions from Render");
+            const data = await response.json();
+            institutions = data.data;
+        }
+        else {
+            institutions = await Client_1.default.find()
+                .select("-password")
+                .lean();
+        }
         return res.status(200).json({
             success: true,
             data: institutions

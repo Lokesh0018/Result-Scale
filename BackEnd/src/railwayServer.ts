@@ -1,3 +1,4 @@
+process.env.SERVER_TYPE = "railway";
 import express from "express";
 import dotenv from "dotenv";
 dotenv.config();

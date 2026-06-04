@@ -2,8 +2,22 @@ import mongoose from "mongoose";
 import Client from "../models/Client";
 import Student from "../models/Student";
 
-const findClientByIdentifier = async (identifier: string) => {
+export const findClientByIdentifier = async (identifier: string) => {
   if (!identifier) return null;
+
+  if (process.env.SERVER_TYPE === "railway") {
+    try {
+      const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
+      const response = await fetch(`${renderUrl}/client/internal/lookup/${identifier}`);
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.client;
+    } catch (error) {
+      console.error("Error in railway findClientByIdentifier:", error);
+      return null;
+    }
+  }
+
   const normalized = identifier.toLowerCase();
   return await Client.findOne({
     $or: [
@@ -112,7 +126,16 @@ export const AddStudent = async (identifier: string, name: string, email: string
         semester,
         sgpa,
     });
-    await Client.findByIdAndUpdate(client._id, { $inc: { students: 1 } });
+    if (process.env.SERVER_TYPE === "railway") {
+        const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
+        await fetch(`${renderUrl}/client/internal/update-student-count/${client._id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ increment: 1 })
+        });
+    } else {
+        await Client.findByIdAndUpdate(client._id, { $inc: { students: 1 } });
+    }
     return student;
 }
 
@@ -165,7 +188,16 @@ export const DeleteStudent = async (email: string, identifier: string) => {
         clientId: client._id
     });
 
-    await Client.findByIdAndUpdate(client._id, { $inc: { students: -1 } });
+    if (process.env.SERVER_TYPE === "railway") {
+        const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
+        await fetch(`${renderUrl}/client/internal/update-student-count/${client._id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ increment: -1 })
+        });
+    } else {
+        await Client.findByIdAndUpdate(client._id, { $inc: { students: -1 } });
+    }
 
     return existingStudent;
 }
@@ -201,7 +233,10 @@ export const UpdatePassword = async (email: string, password: string) => {
     client.password = password;
     await client.save();
     const { password: _password, ...clientDto } = client.toObject();
-    return clientDto;
+    return {
+        ...clientDto,
+        _id: client._id.toString()
+    };
 }
 
 export const UpdateProfile = async (identifier: string, institutionName: string, email: string, password?: string) => {
@@ -225,6 +260,21 @@ export const UpdateProfile = async (identifier: string, institutionName: string,
     
     await Student.updateMany({ clientId: client._id }, { institutionName });
 
+    // Propagate to Railway
+    try {
+        const railwayUrl = process.env.RAILWAY_API_URL || "http://localhost:3000";
+        await fetch(`${railwayUrl}/client/internal/update-students-institution/${client._id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ institutionName })
+        });
+    } catch (err) {
+        console.error("Failed to propagate institution name update to Railway:", err);
+    }
+
     const { password: _password, ...clientDto } = client.toObject();
-    return clientDto;
+    return {
+        ...clientDto,
+        _id: client._id.toString()
+    };
 }

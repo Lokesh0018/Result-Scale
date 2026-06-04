@@ -712,47 +712,23 @@ function AdminDashboard() {
     const userEmail = localStorage.getItem("userEmail") || "admin@resultscale.com";
     const userRole = localStorage.getItem("userRole") || "admin";
     if (addOrUpdate) {
-      const urls = Array.from(new Set([
-        VITE_RENDER_API_URL,
-        VITE_RAILWAY_API_URL
-      ].filter(Boolean)));
+      fetch(`${VITE_RENDER_API_URL}/admin/clients`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Email": userEmail,
+          "X-User-Role": userRole,
+        },
+        body: JSON.stringify(formData),
+      }).then(async (res) => {
+        const data = await res.json();
 
-      Promise.allSettled(
-        urls.map((url) =>
-          fetch(`${url}/admin/clients`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-User-Email": userEmail,
-              "X-User-Role": userRole,
-            },
-            body: JSON.stringify(formData),
-          }).then(async (res) => {
-            const data = await res.json();
-
-            if (!res.ok) {
-              throw new Error(data.message);
-            }
-
-            return data;
-          })
-        )
-      ).then((results) => {
-        const successful = results.find(
-          (r) => r.status === "fulfilled"
-        );
-
-        if (!successful) {
-          const firstError = results.find(
-            (r) => r.status === "rejected"
-          ) as PromiseRejectedResult;
-
-          showToast(firstError.reason.message, "error");
-          return;
+        if (!res.ok) {
+          throw new Error(data.message);
         }
 
-        const data = (successful as PromiseFulfilledResult<any>).value;
-
+        return data;
+      }).then((data) => {
         const newClient: Client = {
           id: clients.length + 1,
           _id: data.client._id || data.client.id,
@@ -779,180 +755,101 @@ function AdminDashboard() {
         ];
 
         updateClientLists(updatedClients);
-
-        const successCount = results.filter(
-          (r) => r.status === "fulfilled"
-        ).length;
-
-        if (successCount < urls.length) {
-          showToast(
-            `Warning: Client sync partially failed. Added to only ${successCount}/${urls.length} server(s).`,
-            "warning"
-          );
-        } else {
-          showToast(
-            "Client added successfully on all servers.",
-            "success"
-          );
-        }
+        showToast("Client added successfully.", "success");
+      }).catch((err) => {
+        showToast(err.message, "error");
       });
     }
     else {
-      const urls = Array.from(new Set([
-        VITE_RENDER_API_URL,
-        VITE_RAILWAY_API_URL
-      ].filter(Boolean)));
+      fetch(`${VITE_RENDER_API_URL}/admin/clients/${formData.oldEmail}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Email": userEmail,
+          "X-User-Role": userRole,
+        },
+        body: JSON.stringify(formData),
+      }).then(async (res) => {
+        const data = await res.json();
 
-      Promise.allSettled(
-        urls.map((url) =>
-          fetch(`${url}/admin/clients/${formData.oldEmail}`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              "X-User-Email": userEmail,
-              "X-User-Role": userRole,
-            },
-            body: JSON.stringify(formData),
-          }).then(async (res) => {
-            const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message);
+        }
 
-            if (!res.ok) {
-              throw new Error(data.message);
-            }
+        return data;
+      }).then((data) => {
+        const existingId =
+          clients.find(
+            (client) => client.email === formData.oldEmail
+          )?.id || clients.length + 1;
 
-            return data;
-          })
-        )
-      )
-        .then((results) => {
-          const successful = results.find(
-            (result) => result.status === "fulfilled"
-          );
+        const newClient: Client = {
+          id: existingId,
+          _id: data.client._id || data.client.id,
+          institutionName: data.client.institutionName,
+          email: data.client.email,
+          students: data.client.students || 0,
+          status:
+            new Date(data.client.portalExpiryDate).getTime() <
+              Date.now()
+              ? "expired"
+              : "active",
+          portalExpiryDate: data.client.portalExpiryDate
+            .toString()
+            .split("T")[0],
+          institutionType: data.client.institutionType,
+          logoUrl: data.client.logoUrl,
+          isActive: data.client.isActive,
+        };
 
-          if (!successful) {
-            const firstError = results.find(
-              (result) => result.status === "rejected"
-            ) as PromiseRejectedResult;
+        const updatedClients = [
+          ...clients.filter(
+            (client) => client.email !== formData.oldEmail
+          ),
+          newClient,
+        ];
 
-            throw new Error(firstError.reason.message);
-          }
-
-          const data = (successful as PromiseFulfilledResult<any>).value;
-
-          const existingId =
-            clients.find(
-              (client) => client.email === formData.oldEmail
-            )?.id || clients.length + 1;
-
-          const newClient: Client = {
-            id: existingId,
-            _id: data.client._id || data.client.id,
-            institutionName: data.client.institutionName,
-            email: data.client.email,
-            students: data.client.students || 0,
-            status:
-              new Date(data.client.portalExpiryDate).getTime() <
-                Date.now()
-                ? "expired"
-                : "active",
-            portalExpiryDate: data.client.portalExpiryDate
-              .toString()
-              .split("T")[0],
-            institutionType: data.client.institutionType,
-            logoUrl: data.client.logoUrl,
-            isActive: data.client.isActive,
-          };
-
-          const updatedClients = [
-            ...clients.filter(
-              (client) => client.email !== formData.oldEmail
-            ),
-            newClient,
-          ];
-
-          updateClientLists(updatedClients);
-
-          const successCount = results.filter(
-            (result) => result.status === "fulfilled"
-          ).length;
-
-          if (successCount < urls.length) {
-            showToast(
-              `Warning: Client sync partially failed. Updated on only ${successCount}/${urls.length} server(s).`,
-              "warning"
-            );
-          } else {
-            showToast(
-              "Client updated successfully on all servers.",
-              "success"
-            );
-          }
-        })
-        .catch((err) => {
-          showToast(err.message, "error");
-        })
-        .finally(() => {
-          setShowModal(false);
-        });
+        updateClientLists(updatedClients);
+        showToast("Client updated successfully.", "success");
+      }).catch((err) => {
+        showToast(err.message, "error");
+      }).finally(() => {
+        setShowModal(false);
+      });
     };
     setShowModal(false);
   }
 
-    const deleteClient = (e: React.MouseEvent<HTMLButtonElement>) => {
-      e.preventDefault();
-      const userEmail = localStorage.getItem("userEmail") || "admin@resultscale.com";
-      const userRole = localStorage.getItem("userRole") || "admin";
-      const urls = Array.from(new Set([
-        VITE_RENDER_API_URL,
-        VITE_RAILWAY_API_URL
-      ].filter(Boolean)));
+  const deleteClient = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    const userEmail = localStorage.getItem("userEmail") || "admin@resultscale.com";
+    const userRole = localStorage.getItem("userRole") || "admin";
 
-      Promise.allSettled(
-        urls.map((url) =>
-          fetch(`${url}/admin/clients/${formData.oldEmail}`, {
-            method: "DELETE",
-            headers: {
-              "Content-Type": "application/json",
-              "X-User-Email": userEmail,
-              "X-User-Role": userRole
-            }
-          }).then(async (res) => {
-            const data = await res.json();
-            if (!res.ok) {
-              throw new Error(data.message || `Failed to delete client on ${url}`);
-            }
-            return data;
-          })
-        )
-      ).then((results) => {
-        const successful = results.find(result => result.status === "fulfilled");
-        if (!successful) {
-          const firstError = results.find(result => result.status === "rejected") as PromiseRejectedResult;
-          throw new Error(firstError.reason.message || "Failed to delete client from all servers");
-        }
-
-        const data = (successful as PromiseFulfilledResult<any>).value;
-        const deletedClient: Client = data.client;
-        const updatedClients = clients.filter((client) => client.email !== deletedClient.email);
-        updateClientLists(updatedClients);
-
-        const successCount = results.filter(r => r.status === "fulfilled").length;
-        if (successCount < urls.length) {
-          showToast(
-            `Warning: Client sync partially failed. Deleted from only ${successCount}/${urls.length} server(s).`,
-            "warning"
-          );
-        } else {
-          showToast(
-            "Client deleted successfully from all servers.",
-            "success"
-          );
-        }
-      }).catch((err) => {
-        showToast(err.message, "error");
-      });
+    fetch(`${VITE_RENDER_API_URL}/admin/clients/${formData.oldEmail}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Email": userEmail,
+        "X-User-Role": userRole
+      }
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to delete client");
+      }
+      return data;
+    }).then((data) => {
+      const deletedClient: Client = data.client;
+      const updatedClients = clients.filter((client) => client.email !== deletedClient.email);
+      updateClientLists(updatedClients);
+      showToast("Client deleted successfully.", "success");
+    }).catch((err) => {
+      showToast(err.message, "error");
+    }).finally(() => {
       setDeleteModal(false);
-    }
+    });
+    setDeleteModal(false);
+  }
 
     const handleSaveSettings = () => {
       if (!adminEmail.trim()) {

@@ -10,6 +10,20 @@ export const verifyLogin = async (email: string, password: string, role: Roles) 
     if (role === "admin") 
         user = await Admin.findOne({ email: normalizedEmail });
     if(role === "client") {
+        if (process.env.SERVER_TYPE === "railway") {
+            const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
+            const response = await fetch(`${renderUrl}/client/internal/verify-login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password, role })
+            });
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.message || "Authentication failed");
+            }
+            const data = await response.json();
+            return data.user;
+        }
         user = await Client.findOne({ email: normalizedEmail });
         if (user && new Date(user.portalExpiryDate).getTime() < Date.now()) {
             throw new Error("Portal Access Expired !");
