@@ -212,8 +212,8 @@ exports.getInquiries = getInquiries;
 const updateInquiryStatus = async (req, res) => {
     const id = req.params.id;
     const { status } = req.body;
-    const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
         if (!status || !['unread', 'read'].includes(status)) {
             return res.status(400).json({
@@ -246,8 +246,8 @@ const updateInquiryStatus = async (req, res) => {
 exports.updateInquiryStatus = updateInquiryStatus;
 const deleteInquiry = async (req, res) => {
     const id = req.params.id;
-    const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
         const inquiry = await (0, adminService_1.DeleteInquiry)(id);
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Inquiry Deleted", "system", `Deleted inquiry from ${inquiry.fullName} (${inquiry.email})`, "success");
@@ -293,8 +293,8 @@ exports.getQuotationRequests = getQuotationRequests;
 const updateQuotationRequestStatus = async (req, res) => {
     const id = req.params.id;
     const { status } = req.body;
-    const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
         if (!status || !['Pending', 'Under Review', 'Contacted', 'Quotation Sent', 'Approved', 'Rejected'].includes(status)) {
             return res.status(400).json({
@@ -327,8 +327,8 @@ const updateQuotationRequestStatus = async (req, res) => {
 exports.updateQuotationRequestStatus = updateQuotationRequestStatus;
 const deleteQuotationRequest = async (req, res) => {
     const id = req.params.id;
-    const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
         const request = await (0, adminService_1.DeleteQuotationRequest)(id);
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Quotation Request Deleted", "system", `Deleted quotation request from ${request.institutionName} (${request.email})`, "success");

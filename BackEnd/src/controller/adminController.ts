@@ -235,8 +235,8 @@ export const getInquiries = async (req: Request, res: Response) => {
 export const updateInquiryStatus = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     const { status } = req.body;
-    const actorEmail = req.headers["x-user-email"] as string || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] as string || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
         if (!status || !['unread', 'read'].includes(status)) {
             return res.status(400).json({
@@ -268,8 +268,8 @@ export const updateInquiryStatus = async (req: Request, res: Response) => {
 
 export const deleteInquiry = async (req: Request, res: Response) => {
     const id = req.params.id as string;
-    const actorEmail = req.headers["x-user-email"] as string || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] as string || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
         const inquiry = await DeleteInquiry(id);
         await LogActivity(actorEmail, actorRole, "Inquiry Deleted", "system", `Deleted inquiry from ${inquiry.fullName} (${inquiry.email})`, "success");
@@ -313,8 +313,8 @@ export const getQuotationRequests = async (req: Request, res: Response) => {
 export const updateQuotationRequestStatus = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     const { status } = req.body;
-    const actorEmail = req.headers["x-user-email"] as string || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] as string || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
         if (!status || !['Pending', 'Under Review', 'Contacted', 'Quotation Sent', 'Approved', 'Rejected'].includes(status)) {
             return res.status(400).json({
@@ -346,8 +346,8 @@ export const updateQuotationRequestStatus = async (req: Request, res: Response) 
 
 export const deleteQuotationRequest = async (req: Request, res: Response) => {
     const id = req.params.id as string;
-    const actorEmail = req.headers["x-user-email"] as string || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] as string || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
         const request = await DeleteQuotationRequest(id);
         await LogActivity(actorEmail, actorRole, "Quotation Request Deleted", "system", `Deleted quotation request from ${request.institutionName} (${request.email})`, "success");

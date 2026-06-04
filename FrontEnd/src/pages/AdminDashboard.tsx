@@ -241,12 +241,7 @@ function AdminDashboard() {
     setLoadingQuotations(true);
     setQuotationsError(null);
     fetch(`${VITE_RENDER_API_URL}/admin/quotation-requests`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "X-User-Email": adminEmail,
-        "X-User-Role": "admin"
-      }
+      method: "GET"
     }).then(async (res) => {
       const data = await res.json();
       if (!res.ok)
@@ -263,10 +258,27 @@ function AdminDashboard() {
         }
       }
       const apiList = data.requests || [];
-      const merged = [...apiList];
+      const merged: any[] = [];
+      const seenIds = new Set<string>();
+
+      // Add API items first, de-duplicating by _id
+      apiList.forEach((item: any) => {
+        if (item && item._id) {
+          const idStr = String(item._id);
+          if (!seenIds.has(idStr)) {
+            seenIds.add(idStr);
+            merged.push(item);
+          }
+        }
+      });
+
+      // Add local items, avoiding duplicates
       localList.forEach((localItem: any) => {
+        if (!localItem || !localItem._id) return;
+        const localIdStr = String(localItem._id);
+        if (seenIds.has(localIdStr)) return;
+
         const isDuplicate = merged.some(item => {
-          if (item._id === localItem._id) return true;
           if (localItem._id && String(localItem._id).startsWith('req_')) {
             const timeDiff = Math.abs(new Date(item.createdAt).getTime() - new Date(localItem.createdAt).getTime());
             return (
@@ -279,10 +291,13 @@ function AdminDashboard() {
           }
           return false;
         });
+
         if (!isDuplicate) {
+          seenIds.add(localIdStr);
           merged.push(localItem);
         }
       });
+
       setQuotationRequests(merged);
     }).catch((err) => {
       console.warn('API fetch failed, using local storage fallback:', err.message);
@@ -317,9 +332,7 @@ function AdminDashboard() {
     fetch(`${VITE_RENDER_API_URL}/admin/quotation-requests/${id}/status`, {
       method: "PATCH",
       headers: {
-        "Content-Type": "application/json",
-        "X-User-Email": adminEmail,
-        "X-User-Role": "admin"
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({ status: newStatus })
     }).then(async (res) => {
@@ -355,12 +368,7 @@ function AdminDashboard() {
     }
 
     fetch(`${VITE_RENDER_API_URL}/admin/quotation-requests/${id}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        "X-User-Email": adminEmail,
-        "X-User-Role": "admin"
-      }
+      method: "DELETE"
     }).then(async (res) => {
       const data = await res.json();
       if (!res.ok)
@@ -386,19 +394,26 @@ function AdminDashboard() {
     setLoadingInquiries(true);
     setInquiryError(null);
     fetch(`${VITE_RENDER_API_URL}/admin/inquiries`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "X-User-Email": adminEmail,
-        "X-User-Role": "admin"
-      }
+      method: "GET"
     }).then(async (res) => {
       const data = await res.json();
       if (!res.ok)
         throw new Error(data.message || "Failed to fetch inquiries");
       return data;
     }).then((data) => {
-      setInquiries(data.inquiries || []);
+      const apiInquiries = data.inquiries || [];
+      const seenIds = new Set<string>();
+      const uniqueInquiries: any[] = [];
+      apiInquiries.forEach((item: any) => {
+        if (item && item._id) {
+          const idStr = String(item._id);
+          if (!seenIds.has(idStr)) {
+            seenIds.add(idStr);
+            uniqueInquiries.push(item);
+          }
+        }
+      });
+      setInquiries(uniqueInquiries);
     }).catch((err) => {
       setInquiryError(err.message);
       showToast(err.message, 'error');
@@ -411,9 +426,7 @@ function AdminDashboard() {
     fetch(`${VITE_RENDER_API_URL}/admin/inquiries/${id}/status`, {
       method: "PATCH",
       headers: {
-        "Content-Type": "application/json",
-        "X-User-Email": adminEmail,
-        "X-User-Role": "admin"
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({ status: newStatus })
     }).then(async (res) => {
@@ -434,12 +447,7 @@ function AdminDashboard() {
 
   const handleDeleteInquiry = async (id: string) => {
     fetch(`${VITE_RENDER_API_URL}/admin/inquiries/${id}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        "X-User-Email": adminEmail,
-        "X-User-Role": "admin"
-      }
+      method: "DELETE"
     }).then(async (res) => {
       const data = await res.json();
       if (!res.ok)
@@ -965,7 +973,6 @@ function AdminDashboard() {
         return;
       }
 
-      // Save standard settings to localStorage
       localStorage.setItem("settings_smtpServer", smtpServer);
       localStorage.setItem("settings_senderEmail", senderEmail);
       localStorage.setItem("settings_otpExpiry", otpExpiry);

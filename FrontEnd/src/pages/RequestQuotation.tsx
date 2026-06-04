@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/request-quotation.css'
 
-const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL || 'http://localhost:3000';
+const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL;
 
 function RequestQuotation() {
   const { showToast } = useToast();
