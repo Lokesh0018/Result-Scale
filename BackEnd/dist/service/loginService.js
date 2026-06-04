@@ -15,9 +15,10 @@ const generateToken = (email, role) => {
     return Buffer.from(`${email}:${role}`).toString("base64");
 };
 const verifyLogin = async (email, password, role) => {
+    const normalizedEmail = email.toLowerCase();
     let user;
     if (role === "admin")
-        user = await Admin_1.default.findOne({ email });
+        user = await Admin_1.default.findOne({ email: normalizedEmail });
     if (role === "client") {
         user = await Client_1.default.findOne({ email });
         if (user && !user.isActive) {

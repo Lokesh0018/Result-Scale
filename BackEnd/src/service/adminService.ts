@@ -17,16 +17,23 @@ export const AddClient = async (
     logoUrl?: string,
     isActive?: boolean
 ) => {
-    const existingClient = await Client.findOne({ email });
+    const normalizedEmail = email.toLowerCase();
+    const existingClient = await Client.findOne({ email: normalizedEmail });
 
     if (existingClient)
-        throw new Error(`Already Exists with Email ${email}`);
+        throw new Error(`Already Exists with Email ${normalizedEmail}`);
 
-    if (portalExpiryDate.getTime() < Date.now())
+    if (isNaN(portalExpiryDate.getTime()))
+        throw new Error("Invalid portal expiry date !");
+
+    // Allow setting the expiry date to today by comparing against the start of today
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    if (portalExpiryDate.getTime() < startOfToday.getTime())
         throw new Error("Date was Expired !");
 
     const client = await Client.create({
-        email,
+        email: normalizedEmail,
         password,
         role: "client",
         institutionName,
@@ -51,20 +58,27 @@ export const UpdateClient = async (
     logoUrl?: string,
     isActive?: boolean
 ) => {
-    const client = await Client.findOne({ email: oldEmail });
+    const normalizedOldEmail = oldEmail.toLowerCase();
+    const normalizedEmail = email.toLowerCase();
+    const client = await Client.findOne({ email: normalizedOldEmail });
     if (!client)
         throw new Error("Client not found !");
     
-    if (oldEmail !== email) {
-        const existingClient = await Client.findOne({ email });
+    if (normalizedOldEmail !== normalizedEmail) {
+        const existingClient = await Client.findOne({ email: normalizedEmail });
         if (existingClient)
-            throw new Error(`Already Exists with Email ${email}`);
+            throw new Error(`Already Exists with Email ${normalizedEmail}`);
     }
 
-    if (portalExpiryDate.getTime() < Date.now())
+    if (isNaN(portalExpiryDate.getTime()))
+        throw new Error("Invalid portal expiry date !");
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    if (portalExpiryDate.getTime() < startOfToday.getTime())
         throw new Error("Date was Expired !");
 
-    client.email = email;
+    client.email = normalizedEmail;
     client.password = password;
     client.institutionName = institutionName;
     client.portalExpiryDate = portalExpiryDate;
@@ -84,7 +98,8 @@ export const UpdateClient = async (
 }
 
 export const DeleteClient = async (email: string) => {
-    const existingClient = await Client.findOne({ email });
+    const normalizedEmail = email.toLowerCase();
+    const existingClient = await Client.findOne({ email: normalizedEmail });
     if (!existingClient)
         throw new Error("Client not found !");
     await Client.deleteOne({ email });

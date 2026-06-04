@@ -12,6 +12,7 @@ const generateToken = (email: string, role: string): string => {
 };
 
 export const verifyLogin = async (email: string, password: string, role: Roles) => {
+    const normalizedEmail = email.toLowerCase();
     let user;
     if (role === "admin")
         user = await Admin.findOne({ email });

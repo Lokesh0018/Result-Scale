@@ -50,7 +50,7 @@ export const addStudent = async (req: Request, res: Response) => {
         });
     }
     catch (err: any) {
-        await LogActivity(actorEmail, actorRole, "Student Creation Failed", "student", `Failed to add student ${name || ""}: ${err.message}`, "failure");
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Creation Failed", "student", `Failed to add student ${name || ""}: ${err.message}`, "failure");
         if (err.message.includes("Already Exists"))
             return res.status(409).json({
                 success: false,
@@ -85,7 +85,7 @@ export const updateStudent = async (req: Request, res: Response) => {
         });
     }
     catch (err: any) {
-        await LogActivity(actorEmail, actorRole, "Student Update Failed", "student", `Failed to update student ${oldEmail}: ${err.message}`, "failure");
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Update Failed", "student", `Failed to update student ${oldEmail}: ${err.message}`, "failure");
         if (err.message.includes("Already Exists"))
             return res.status(409).json({
                 success: false,
@@ -120,7 +120,7 @@ export const deleteStudent = async (req: Request, res: Response) => {
         });
     }
     catch (err: any) {
-        await LogActivity(actorEmail, actorRole, "Student Deletion Failed", "student", `Failed to delete student ${email}: ${err.message}`, "failure");
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Deletion Failed", "student", `Failed to delete student ${email}: ${err.message}`, "failure");
         if (err.message === "Student not found !")
             return res.status(404).json({
                 success: false,
@@ -141,7 +141,7 @@ export const getStudents = async (req: Request, res: Response) => {
         return res.status(200).json({
             success: true,
             message: "Students Fetched Successfully",
-            students
+            ...result
         });
     }
     catch (err: any) {
@@ -158,15 +158,15 @@ export const updatePassword = async (req: Request, res: Response) => {
     const actorEmail = email || "unknown_client";
     const actorRole = "client";
     try {
-        const admin = await UpdatePassword(email, password);
-        await LogActivity(actorEmail, actorRole, "Password Updated", "security", `Client password updated for: ${email}`, "success");
+        const admin = await UpdatePassword(normalizedEmail, password);
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Password Updated", "security", `Client password updated for: ${normalizedEmail}`, "success");
         return res.status(200).json({
             message: "Password Changed Successfully",
             admin
         });
     }
     catch (err: any) {
-        await LogActivity(actorEmail, actorRole, "Password Update Failed", "security", `Failed to update client password for ${email}: ${err.message}`, "failure");
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Password Update Failed", "security", `Failed to update client password for ${email}: ${err.message}`, "failure");
         if (err.message === "Client not found !") {
             return res.status(404).json({
                 success: false,
@@ -201,7 +201,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         });
     }
     catch (err: any) {
-        await LogActivity(actorEmail, actorRole, "Profile Update Failed", "client", `Failed to update client profile: ${err.message}`, "failure");
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Profile Update Failed", "client", `Failed to update client profile: ${err.message}`, "failure");
         return res.status(500).json({
             success: false,
             message: err.message
