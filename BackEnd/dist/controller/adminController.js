@@ -1,14 +1,8 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteQuotationRequest = exports.updateQuotationRequestStatus = exports.getQuotationRequests = exports.deleteInquiry = exports.updateInquiryStatus = exports.getInquiries = exports.getActivityLogs = exports.updatePassword = exports.getStudents = exports.deleteClient = exports.updateClient = exports.addClient = exports.getDashboard = void 0;
 const adminService_1 = require("../service/adminService");
 const logService_1 = require("../service/logService");
-const dbErrorHandler_1 = require("../utils/dbErrorHandler");
-const Client_1 = __importDefault(require("../models/Client"));
-const clientValidation_1 = require("../utils/clientValidation");
 const getDashboard = async (req, res) => {
     try {
         const data = await (0, adminService_1.GetDashboard)();
@@ -29,12 +23,16 @@ const getDashboard = async (req, res) => {
 exports.getDashboard = getDashboard;
 const addClient = async (req, res) => {
     const { institutionName, email, password, portalExpiryDate, institutionType, logoUrl, isActive } = req.body;
-    const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
-        (0, clientValidation_1.validateClientInput)({ institutionName, email, password, portalExpiryDate });
-        const client = await (0, adminService_1.AddClient)(institutionName, email.toLowerCase(), password, new Date(portalExpiryDate), institutionType, logoUrl, isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : true);
-        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Created", "client", `Created client institution: ${institutionName} (${email.toLowerCase()})`, "success");
+        if (!institutionName || !email || !password || !portalExpiryDate)
+            return res.status(400).json({
+                success: false,
+                message: "Institution name, email, password, portal expiry date are required !",
+            });
+        const client = await (0, adminService_1.AddClient)(institutionName, email, password, new Date(portalExpiryDate), institutionType, logoUrl, isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : true);
+        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Created", "client", `Created client institution: ${institutionName} (${email})`, "success");
         return res.status(201).json({
             success: true,
             message: "Client Added Successfully",
@@ -43,14 +41,12 @@ const addClient = async (req, res) => {
     }
     catch (err) {
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Creation Failed", "client", `Failed to create client ${email || ""}: ${err.message}`, "failure");
-        const { isDuplicate, message } = await (0, dbErrorHandler_1.checkAndLogDuplicate)(err, Client_1.default, { email });
-        if (isDuplicate) {
+        if (err.message.includes("Already Exists"))
             return res.status(409).json({
                 success: false,
-                message
+                message: err.message
             });
-        }
-        if (err.message === "Date was Expired !" || err.message === "Invalid portal expiry date !")
+        if (err.message === "Date was Expired !")
             return res.status(400).json({
                 success: false,
                 message: err.message
@@ -65,17 +61,16 @@ exports.addClient = addClient;
 const updateClient = async (req, res) => {
     const oldEmail = req.params.email;
     const { institutionName, email, password, portalExpiryDate, institutionType, logoUrl, isActive } = req.body;
-    const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
-        if (!oldEmail)
+        if (!institutionName || !oldEmail || !email || !password || !portalExpiryDate)
             return res.status(400).json({
                 success: false,
-                message: "Client email is required !",
+                message: "Institution name, email, password, portal expiry date are required !",
             });
-        (0, clientValidation_1.validateClientInput)({ institutionName, email, password, portalExpiryDate });
-        const client = await (0, adminService_1.UpdateClient)(institutionName, oldEmail.toLowerCase(), email.toLowerCase(), password, new Date(portalExpiryDate), institutionType, logoUrl, isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : undefined);
-        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Updated", "client", `Updated client institution: ${institutionName} (${email.toLowerCase()})`, "success");
+        const client = await (0, adminService_1.UpdateClient)(institutionName, oldEmail, email, password, new Date(portalExpiryDate), institutionType, logoUrl, isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : undefined);
+        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Updated", "client", `Updated client institution: ${institutionName} (${email})`, "success");
         return res.status(200).json({
             success: true,
             message: "Client Updated Successfully",
@@ -84,22 +79,17 @@ const updateClient = async (req, res) => {
     }
     catch (err) {
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Update Failed", "client", `Failed to update client ${oldEmail}: ${err.message}`, "failure");
-        // Find existing client to get its _id for checking self-update
-        const existingClientForId = await Client_1.default.findOne({ email: oldEmail.toLowerCase() }).lean();
-        const client_id = existingClientForId ? existingClientForId._id : undefined;
-        const { isDuplicate, message } = await (0, dbErrorHandler_1.checkAndLogDuplicate)(err, Client_1.default, { email, _id: client_id });
-        if (isDuplicate) {
+        if (err.message.includes("Already Exists"))
             return res.status(409).json({
                 success: false,
-                message
+                message: err.message
             });
-        }
         if (err.message === "Client not found !")
             return res.status(404).json({
                 success: false,
                 message: err.message
             });
-        if (err.message === "Date was Expired !" || err.message === "Invalid portal expiry date !")
+        if (err.message === "Date was Expired !")
             return res.status(400).json({
                 success: false,
                 message: err.message
@@ -113,11 +103,11 @@ const updateClient = async (req, res) => {
 exports.updateClient = updateClient;
 const deleteClient = async (req, res) => {
     const email = req.params.email;
-    const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
-        const client = await (0, adminService_1.DeleteClient)(email.toLowerCase());
-        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Deleted", "client", `Deleted client and all enrolled student data: ${email.toLowerCase()}`, "success");
+        const client = await (0, adminService_1.DeleteClient)(email);
+        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Deleted", "client", `Deleted client and all enrolled student data: ${email}`, "success");
         return res.status(200).json({
             success: true,
             message: "Client Deleted Successfully",
@@ -159,11 +149,11 @@ exports.getStudents = getStudents;
 const updatePassword = async (req, res) => {
     const email = req.params.email;
     const { password } = req.body;
-    const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
-        const admin = await (0, adminService_1.UpdatePassword)(email.toLowerCase(), password);
-        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Password Updated", "security", `Admin password updated for: ${email.toLowerCase()}`, "success");
+        const admin = await (0, adminService_1.UpdatePassword)(email, password);
+        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Password Updated", "security", `Admin password updated for: ${email}`, "success");
         return res.status(200).json({
             message: "Password Changed Successfully",
             admin
@@ -222,8 +212,8 @@ exports.getInquiries = getInquiries;
 const updateInquiryStatus = async (req, res) => {
     const id = req.params.id;
     const { status } = req.body;
-    const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
         if (!status || !['unread', 'read'].includes(status)) {
             return res.status(400).json({
@@ -256,8 +246,8 @@ const updateInquiryStatus = async (req, res) => {
 exports.updateInquiryStatus = updateInquiryStatus;
 const deleteInquiry = async (req, res) => {
     const id = req.params.id;
-    const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
         const inquiry = await (0, adminService_1.DeleteInquiry)(id);
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Inquiry Deleted", "system", `Deleted inquiry from ${inquiry.fullName} (${inquiry.email})`, "success");
@@ -303,8 +293,8 @@ exports.getQuotationRequests = getQuotationRequests;
 const updateQuotationRequestStatus = async (req, res) => {
     const id = req.params.id;
     const { status } = req.body;
-    const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
         if (!status || !['Pending', 'Under Review', 'Contacted', 'Quotation Sent', 'Approved', 'Rejected'].includes(status)) {
             return res.status(400).json({
@@ -337,8 +327,8 @@ const updateQuotationRequestStatus = async (req, res) => {
 exports.updateQuotationRequestStatus = updateQuotationRequestStatus;
 const deleteQuotationRequest = async (req, res) => {
     const id = req.params.id;
-    const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
-    const actorRole = req.headers["x-user-role"] || "admin";
+    const actorEmail = "admin@resultscale.com";
+    const actorRole = "admin";
     try {
         const request = await (0, adminService_1.DeleteQuotationRequest)(id);
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Quotation Request Deleted", "system", `Deleted quotation request from ${request.institutionName} (${request.email})`, "success");

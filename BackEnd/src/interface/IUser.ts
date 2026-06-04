@@ -1,5 +1,5 @@
 import { Roles } from "../types/types";
-import { Document } from "mongoose";
+import mongoose, { Document } from "mongoose";
 
 export interface IAdmin extends Document {
     email: string;
@@ -17,7 +17,7 @@ export interface IClient extends IAdmin {
 }
 
 export interface IStudent extends Document {
-    clientEmail: string,
+    clientId: mongoose.Types.ObjectId,
     name: string,
     rollNo: string,
     email: string,

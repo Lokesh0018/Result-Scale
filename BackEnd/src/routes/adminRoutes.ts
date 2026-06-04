@@ -1,13 +1,14 @@
 import express from "express";
 import { login } from "../controller/loginController";
 import {
-  getDashboard, addClient, updateClient, deleteClient, getStudents,
-  updatePassword, getActivityLogs, getInquiries, updateInquiryStatus, deleteInquiry,
-  getQuotationRequests, updateQuotationRequestStatus, deleteQuotationRequest
+    getDashboard, addClient, updateClient, deleteClient, getStudents,
+    updatePassword, getActivityLogs, getInquiries, updateInquiryStatus, deleteInquiry,
+    getQuotationRequests, updateQuotationRequestStatus, deleteQuotationRequest
 } from "../controller/adminController";
 
 export const router = express.Router();
 
+// Public
 router.post("/login", login);
 
 router.get("/dashboard", getDashboard);
@@ -16,10 +17,9 @@ router.put("/clients/:email", updateClient);
 router.delete("/clients/:email", deleteClient);
 
 router.get("/students", getStudents);
+router.get("/logs", getActivityLogs);
 
 router.patch("/password/:email", updatePassword);
-
-router.get("/logs", getActivityLogs);
 
 router.get("/inquiries", getInquiries);
 router.patch("/inquiries/:id/status", updateInquiryStatus);

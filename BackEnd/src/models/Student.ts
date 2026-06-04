@@ -1,11 +1,13 @@
 import mongoose, { Schema } from "mongoose";
 import { IStudent } from "../interface/IUser";
+import Client from "./Client";
 
 const studentSchema = new Schema<IStudent>({
-    clientEmail: {
-        type: String,
+    clientId: {
+        type: Schema.Types.ObjectId,
+        ref: Client,
         required: true,
-        index: true,
+        index:true,
     },
 
     name: {
@@ -47,7 +49,5 @@ const studentSchema = new Schema<IStudent>({
         type:Date
     }
 })
-
-studentSchema.index({ clientEmail: 1, rollNo: 1 }, { unique: true });
 
 export default mongoose.model<IStudent>("Student",studentSchema);

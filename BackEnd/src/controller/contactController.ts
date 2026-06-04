@@ -16,10 +16,6 @@ export const submitInquiry = async (req: Request, res: Response) => {
   const { fullName, institutionName, email, phone, subject, message } = req.body;
 
   try {
-    if (process.env.SERVER_TYPE !== "render") {
-      return res.status(400).json({ success: false, message: "Contact messages must be submitted to the Render API." });
-    }
-
     // 1. Validation checks
     if (!fullName || !institutionName || !email || !phone || !subject || !message) {
       return res.status(400).json({
@@ -52,7 +48,7 @@ export const submitInquiry = async (req: Request, res: Response) => {
       });
     }
 
-    // 2. Save contact message to the Render-owned datastore
+    // 2. Save inquiry to MongoDB
     const inquiry = new Inquiry({
       fullName: fullName.trim(),
       institutionName: institutionName.trim(),
@@ -92,10 +88,6 @@ export const submitQuotationRequest = async (req: Request, res: Response) => {
   } = req.body;
 
   try {
-    if (process.env.SERVER_TYPE !== "railway") {
-      return res.status(400).json({ success: false, message: "Quotation requests must be submitted to the Railway API." });
-    }
-
     // 1. Validation checks
     if (!institutionName || !contactPerson || !email || !phone || studentCount === undefined || accessDurationDays === undefined || !expectedReleaseDate) {
       return res.status(400).json({
