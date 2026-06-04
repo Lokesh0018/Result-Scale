@@ -6,7 +6,7 @@ import Client from "../models/Client"
 export const getDashboard = async (req: Request, res: Response) => {
     try {
         const clientEmail = req.params.clientEmail as string;
-        const data = await GetDashboard(clientEmail);
+        const data = await GetDashboard(clientEmail.toLowerCase());
         return res.status(200).json({
             success: true,
             message: "DashBoard Fetched Successfully",
@@ -24,16 +24,18 @@ export const getDashboard = async (req: Request, res: Response) => {
 
 export const addStudent = async (req: Request, res: Response) => {
     const { clientEmail, name, email, rollNo, semester, sgpa } = req.body;
-    const actorEmail = req.headers["x-user-email"] as string || clientEmail;
+    const normalizedClientEmail = clientEmail ? clientEmail.toLowerCase() : "";
+    const normalizedEmail = email ? email.toLowerCase() : "";
+    const actorEmail = req.headers["x-user-email"] as string || normalizedClientEmail;
     const actorRole = req.headers["x-user-role"] as string || "client";
     try {
-        if (!clientEmail || !name || !email || !rollNo || semester === undefined || sgpa === undefined)
+        if (!normalizedClientEmail || !name || !normalizedEmail || !rollNo || semester === undefined || sgpa === undefined)
             return res.status(400).json({
                 success: false,
                 message: "Client id, name, email, roll no, semester are required !",
             });
-        const student = await AddStudent(clientEmail, name, email, rollNo, semester, sgpa);
-        await LogActivity(actorEmail, actorRole, "Student Created", "student", `Added student: ${name} (${rollNo}, Sem: ${semester}, SGPA: ${sgpa})`, "success");
+        const student = await AddStudent(normalizedClientEmail, name, normalizedEmail, rollNo, semester, sgpa);
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Created", "student", `Added student: ${name} (${rollNo}, Sem: ${semester}, SGPA: ${sgpa})`, "success");
         return res.status(201).json({
             success: true,
             message: "Student Added Successfully",
@@ -41,7 +43,7 @@ export const addStudent = async (req: Request, res: Response) => {
         });
     }
     catch (err: any) {
-        await LogActivity(actorEmail, actorRole, "Student Creation Failed", "student", `Failed to add student ${name || ""}: ${err.message}`, "failure");
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Creation Failed", "student", `Failed to add student ${name || ""}: ${err.message}`, "failure");
         if (err.message.includes("Already Exists"))
             return res.status(409).json({
                 success: false,
@@ -58,17 +60,20 @@ export const addStudent = async (req: Request, res: Response) => {
 export const updateStudent = async (req: Request, res: Response) => {
     const oldEmail = req.params.email as string;
     const { clientEmail, name, email, rollNo, semester, sgpa } = req.body;
-    const actorEmail = req.headers["x-user-email"] as string || clientEmail;
+    const normalizedOldEmail = oldEmail.toLowerCase();
+    const normalizedClientEmail = clientEmail ? clientEmail.toLowerCase() : "";
+    const normalizedEmail = email ? email.toLowerCase() : "";
+    const actorEmail = req.headers["x-user-email"] as string || normalizedClientEmail;
     const actorRole = req.headers["x-user-role"] as string || "client";
     try {
-        if (!oldEmail || !clientEmail || !name || !email || !rollNo || !semester)
+        if (!normalizedOldEmail || !normalizedClientEmail || !name || !normalizedEmail || !rollNo || !semester)
             return res.status(400).json({
                 success: false,
                 message: "Client id, name, email, roll no, semester are required !",
             });
 
-        const student = await UpdateStudent(oldEmail, clientEmail, name, email, rollNo, semester, sgpa);
-        await LogActivity(actorEmail, actorRole, "Student Updated", "student", `Updated student: ${name} (${rollNo}, Sem: ${semester}, SGPA: ${sgpa})`, "success");
+        const student = await UpdateStudent(normalizedOldEmail, normalizedClientEmail, name, normalizedEmail, rollNo, semester, sgpa);
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Updated", "student", `Updated student: ${name} (${rollNo}, Sem: ${semester}, SGPA: ${sgpa})`, "success");
         return res.status(200).json({
             success: true,
             message: "Student Updated Successfully",
@@ -76,7 +81,7 @@ export const updateStudent = async (req: Request, res: Response) => {
         });
     }
     catch (err: any) {
-        await LogActivity(actorEmail, actorRole, "Student Update Failed", "student", `Failed to update student ${oldEmail}: ${err.message}`, "failure");
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Update Failed", "student", `Failed to update student ${oldEmail}: ${err.message}`, "failure");
         if (err.message.includes("Already Exists"))
             return res.status(409).json({
                 success: false,
@@ -99,11 +104,13 @@ export const updateStudent = async (req: Request, res: Response) => {
 export const deleteStudent = async (req: Request, res: Response) => {
     const email = req.params.email as string;
     const { clientEmail } = req.body;
-    const actorEmail = req.headers["x-user-email"] as string || clientEmail;
+    const normalizedEmail = email.toLowerCase();
+    const normalizedClientEmail = clientEmail ? clientEmail.toLowerCase() : "";
+    const actorEmail = req.headers["x-user-email"] as string || normalizedClientEmail;
     const actorRole = req.headers["x-user-role"] as string || "client";
     try {
-        const student = await DeleteStudent(email, clientEmail);
-        await LogActivity(actorEmail, actorRole, "Student Deleted", "student", `Deleted student: ${student.name} (${student.rollNo})`, "success");
+        const student = await DeleteStudent(normalizedEmail, normalizedClientEmail);
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Deleted", "student", `Deleted student: ${student.name} (${student.rollNo})`, "success");
         return res.status(200).json({
             success: true,
             message: "Student Deleted Successfully",
@@ -111,7 +118,7 @@ export const deleteStudent = async (req: Request, res: Response) => {
         });
     }
     catch (err: any) {
-        await LogActivity(actorEmail, actorRole, "Student Deletion Failed", "student", `Failed to delete student ${email}: ${err.message}`, "failure");
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Deletion Failed", "student", `Failed to delete student ${email}: ${err.message}`, "failure");
         if (err.message === "Student not found !")
             return res.status(404).json({
                 success: false,
@@ -128,11 +135,12 @@ export const deleteStudent = async (req: Request, res: Response) => {
 export const getStudents = async (req: Request, res: Response) => {
     try {
         const clientEmail = req.params.clientEmail as string;
-        const students = await GetStudents(clientEmail);
+        const result = await GetStudents(clientEmail.toLowerCase());
+
         return res.status(200).json({
             success: true,
             message: "Students Fetched Successfully",
-            students
+            ...result
         });
     }
     catch (err: any) {
@@ -146,18 +154,19 @@ export const getStudents = async (req: Request, res: Response) => {
 export const updatePassword = async (req: Request, res: Response) => {
     const email = req.params.email as string;
     const { password } = req.body;
-    const actorEmail = req.headers["x-user-email"] as string || email || "unknown_client";
+    const normalizedEmail = email.toLowerCase();
+    const actorEmail = req.headers["x-user-email"] as string || normalizedEmail || "unknown_client";
     const actorRole = req.headers["x-user-role"] as string || "client";
     try {
-        const admin = await UpdatePassword(email, password);
-        await LogActivity(actorEmail, actorRole, "Password Updated", "security", `Client password updated for: ${email}`, "success");
+        const admin = await UpdatePassword(normalizedEmail, password);
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Password Updated", "security", `Client password updated for: ${normalizedEmail}`, "success");
         return res.status(200).json({
             message: "Password Changed Successfully",
             admin
         });
     }
     catch (err: any) {
-        await LogActivity(actorEmail, actorRole, "Password Update Failed", "security", `Failed to update client password for ${email}: ${err.message}`, "failure");
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Password Update Failed", "security", `Failed to update client password for ${email}: ${err.message}`, "failure");
         if (err.message === "Client not found !") {
             return res.status(404).json({
                 success: false,
@@ -174,17 +183,19 @@ export const updatePassword = async (req: Request, res: Response) => {
 export const updateProfile = async (req: Request, res: Response) => {
     const clientEmail = req.params.clientEmail as string;
     const { institutionName, email, password } = req.body;
-    const actorEmail = req.headers["x-user-email"] as string || email || "unknown_client";
+    const normalizedClientEmail = clientEmail.toLowerCase();
+    const normalizedEmail = email ? email.toLowerCase() : "";
+    const actorEmail = req.headers["x-user-email"] as string || normalizedEmail || "unknown_client";
     const actorRole = req.headers["x-user-role"] as string || "client";
     try {
-        if (!clientEmail || !institutionName || !email) {
+        if (!normalizedClientEmail || !institutionName || !normalizedEmail) {
             return res.status(400).json({
                 success: false,
                 message: "Client id, institution name, and email are required !",
             });
         }
-        const client = await UpdateProfile(clientEmail, institutionName, email, password);
-        await LogActivity(actorEmail, actorRole, "Profile Updated", "client", `Client profile updated: ${institutionName} (${email})`, "success");
+        const client = await UpdateProfile(normalizedClientEmail, institutionName, normalizedEmail, password);
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Profile Updated", "client", `Client profile updated: ${institutionName} (${normalizedEmail})`, "success");
         return res.status(200).json({
             success: true,
             message: "Profile Updated Successfully",
@@ -192,7 +203,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         });
     }
     catch (err: any) {
-        await LogActivity(actorEmail, actorRole, "Profile Update Failed", "client", `Failed to update client profile: ${err.message}`, "failure");
+        await LogActivity(actorEmail.toLowerCase(), actorRole, "Profile Update Failed", "client", `Failed to update client profile: ${err.message}`, "failure");
         return res.status(500).json({
             success: false,
             message: err.message

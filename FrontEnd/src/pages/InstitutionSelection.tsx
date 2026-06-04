@@ -41,8 +41,10 @@ function InstitutionSelection() {
         method: "GET",
         headers: {
           "Content-Type": "application/json"
-        }
-      }).then(async (res) => {
+        },
+        // @ts-ignore
+        skipLoading: true
+      } as any).then(async (res) => {
         const data = await res.json()
         if (!res.ok) {
           throw new Error(data.message || "Failed to fetch institutions")

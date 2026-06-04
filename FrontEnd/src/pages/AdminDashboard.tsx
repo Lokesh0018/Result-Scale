@@ -741,10 +741,10 @@ function AdminDashboard() {
     const userEmail = localStorage.getItem("userEmail") || "admin@resultscale.com";
     const userRole = localStorage.getItem("userRole") || "admin";
     if (addOrUpdate) {
-      const urls = [
+      const urls = Array.from(new Set([
         VITE_RENDER_API_URL,
         VITE_RAILWAY_API_URL
-      ];
+      ].filter(Boolean)));
 
       Promise.allSettled(
         urls.map((url) =>
@@ -814,16 +814,16 @@ function AdminDashboard() {
         ).length;
 
         showToast(
-          `Client added to ${successCount}/2 servers successfully`,
+          `Client added to ${successCount}/${urls.length} server(s) successfully`,
           "success"
         );
       });
     }
     else {
-      const urls = [
+      const urls = Array.from(new Set([
         VITE_RENDER_API_URL,
         VITE_RAILWAY_API_URL
-      ];
+      ].filter(Boolean)));
 
       Promise.allSettled(
         urls.map((url) =>
@@ -899,7 +899,7 @@ function AdminDashboard() {
           ).length;
 
           showToast(
-            `Client updated successfully on ${successCount}/2 servers`,
+            `Client updated successfully on ${successCount}/${urls.length} server(s)`,
             "success"
           );
         })
@@ -917,10 +917,10 @@ function AdminDashboard() {
       e.preventDefault();
       const userEmail = localStorage.getItem("userEmail") || "admin@resultscale.com";
       const userRole = localStorage.getItem("userRole") || "admin";
-      const urls = [
+      const urls = Array.from(new Set([
         VITE_RENDER_API_URL,
         VITE_RAILWAY_API_URL
-      ];
+      ].filter(Boolean)));
 
       Promise.allSettled(
         urls.map((url) =>
@@ -952,7 +952,7 @@ function AdminDashboard() {
         updateClientLists(updatedClients);
 
         const successCount = results.filter(r => r.status === "fulfilled").length;
-        showToast(`Client deleted successfully on ${successCount}/2 servers`, "success");
+        showToast(`Client deleted successfully on ${successCount}/${urls.length} server(s)`, "success");
       }).catch((err) => {
         showToast(err.message, "error");
       });

@@ -5,11 +5,12 @@ import Student from "../models/Student";
 import { Roles } from "../types/types";
 
 export const verifyLogin = async (email: string, password: string, role: Roles) => {
+    const normalizedEmail = email.toLowerCase();
     let user;
     if (role === "admin") 
-        user = await Admin.findOne({ email });
+        user = await Admin.findOne({ email: normalizedEmail });
     if(role === "client") {
-        user = await Client.findOne({email});
+        user = await Client.findOne({ email: normalizedEmail });
         if (user && new Date(user.portalExpiryDate).getTime() < Date.now()) {
             throw new Error("Portal Access Expired !");
         }

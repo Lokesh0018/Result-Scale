@@ -36,14 +36,14 @@ export const addClient = async (req: Request, res: Response) => {
             });
         const client = await AddClient(
             institutionName,
-            email,
+            email.toLowerCase(),
             password,
             new Date(portalExpiryDate),
             institutionType,
             logoUrl,
             isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : true
         );
-        await LogActivity(actorEmail, actorRole, "Client Created", "client", `Created client institution: ${institutionName} (${email})`, "success");
+        await LogActivity(actorEmail, actorRole, "Client Created", "client", `Created client institution: ${institutionName} (${email.toLowerCase()})`, "success");
         return res.status(201).json({
             success: true,
             message: "Client Added Successfully",
@@ -52,12 +52,16 @@ export const addClient = async (req: Request, res: Response) => {
     }
     catch (err: any) {
         await LogActivity(actorEmail, actorRole, "Client Creation Failed", "client", `Failed to create client ${email || ""}: ${err.message}`, "failure");
-        if (err.message.includes("Already Exists"))
+        const isDuplicate = err.message.includes("Already Exists") || 
+                            err.code === 11000 || 
+                            err.message.toLowerCase().includes("duplicate") || 
+                            err.message.toLowerCase().includes("unique index");
+        if (isDuplicate)
             return res.status(409).json({
                 success: false,
-                message: err.message
+                message: `Already Exists with Email ${email.toLowerCase()}`
             });
-        if (err.message === "Date was Expired !")
+        if (err.message === "Date was Expired !" || err.message === "Invalid portal expiry date !")
             return res.status(400).json({
                 success: false,
                 message: err.message
@@ -82,15 +86,15 @@ export const updateClient = async (req: Request, res: Response) => {
             });
         const client = await UpdateClient(
             institutionName,
-            oldEmail,
-            email,
+            oldEmail.toLowerCase(),
+            email.toLowerCase(),
             password,
             new Date(portalExpiryDate),
             institutionType,
             logoUrl,
             isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : undefined
         );
-        await LogActivity(actorEmail, actorRole, "Client Updated", "client", `Updated client institution: ${institutionName} (${email})`, "success");
+        await LogActivity(actorEmail, actorRole, "Client Updated", "client", `Updated client institution: ${institutionName} (${email.toLowerCase()})`, "success");
         return res.status(200).json({
             success: true,
             message: "Client Updated Successfully",
@@ -99,10 +103,14 @@ export const updateClient = async (req: Request, res: Response) => {
     }
     catch (err: any) {
         await LogActivity(actorEmail, actorRole, "Client Update Failed", "client", `Failed to update client ${oldEmail}: ${err.message}`, "failure");
-        if (err.message.includes("Already Exists"))
+        const isDuplicate = err.message.includes("Already Exists") || 
+                            err.code === 11000 || 
+                            err.message.toLowerCase().includes("duplicate") || 
+                            err.message.toLowerCase().includes("unique index");
+        if (isDuplicate)
             return res.status(409).json({
                 success: false,
-                message: err.message
+                message: `Already Exists with Email ${email.toLowerCase()}`
             });
 
         if (err.message === "Client not found !")
@@ -111,7 +119,7 @@ export const updateClient = async (req: Request, res: Response) => {
                 message: err.message
             });
 
-        if (err.message === "Date was Expired !")
+        if (err.message === "Date was Expired !" || err.message === "Invalid portal expiry date !")
             return res.status(400).json({
                 success: false,
                 message: err.message
@@ -129,8 +137,8 @@ export const deleteClient = async (req: Request, res: Response) => {
     const actorEmail = req.headers["x-user-email"] as string || "admin@resultscale.com";
     const actorRole = req.headers["x-user-role"] as string || "admin";
     try {
-        const client = await DeleteClient(email);
-        await LogActivity(actorEmail, actorRole, "Client Deleted", "client", `Deleted client and all enrolled student data: ${email}`, "success");
+        const client = await DeleteClient(email.toLowerCase());
+        await LogActivity(actorEmail, actorRole, "Client Deleted", "client", `Deleted client and all enrolled student data: ${email.toLowerCase()}`, "success");
         return res.status(200).json({
             success: true,
             message: "Client Deleted Successfully",
@@ -176,8 +184,8 @@ export const updatePassword = async (req: Request, res: Response) => {
     const actorEmail = req.headers["x-user-email"] as string || "admin@resultscale.com";
     const actorRole = req.headers["x-user-role"] as string || "admin";
     try {
-        const admin = await UpdatePassword(email, password);
-        await LogActivity(actorEmail, actorRole, "Password Updated", "security", `Admin password updated for: ${email}`, "success");
+        const admin = await UpdatePassword(email.toLowerCase(), password);
+        await LogActivity(actorEmail, actorRole, "Password Updated", "security", `Admin password updated for: ${email.toLowerCase()}`, "success");
         return res.status(200).json({
             message: "Password Changed Successfully",
             admin

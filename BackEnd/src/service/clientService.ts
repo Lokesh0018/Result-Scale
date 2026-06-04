@@ -4,9 +4,10 @@ import Student from "../models/Student";
 
 const findClientByIdentifier = async (identifier: string) => {
   if (!identifier) return null;
+  const normalized = identifier.toLowerCase();
   return await Client.findOne({
     $or: [
-      { email: identifier },
+      { email: normalized },
       ...(mongoose.Types.ObjectId.isValid(identifier) ? [{ _id: new mongoose.Types.ObjectId(identifier) }] : [])
     ]
   });
@@ -15,26 +16,91 @@ const findClientByIdentifier = async (identifier: string) => {
 export const GetDashboard = async (identifier: string) => {
   const client = await findClientByIdentifier(identifier);
   if (!client) throw new Error("Client not found !");
-  const students = await Student.find({
-    clientId: client._id
-  }).lean();
+
+  const totalStudents = await Student.countDocuments({ clientId: client._id });
+
+  // Aggregations
+  const statsResult = await Student.aggregate([
+    { $match: { clientId: client._id } },
+    {
+      $group: {
+        _id: null,
+        averageSgpa: { $avg: "$sgpa" },
+        passingCount: { $sum: { $cond: [{ $gte: ["$sgpa", 5.0] }, 1, 0] } },
+        excellenceCount: { $sum: { $cond: [{ $gte: ["$sgpa", 9.0] }, 1, 0] } }
+      }
+    }
+  ]);
+
+  const stats = statsResult[0] || { averageSgpa: 0, passingCount: 0, excellenceCount: 0 };
+
+  // SGPA Distribution Buckets
+  const distributionResult = await Student.aggregate([
+    { $match: { clientId: client._id } },
+    {
+      $group: {
+        _id: null,
+        excellent: { $sum: { $cond: [{ $gte: ["$sgpa", 9.0] }, 1, 0] } },
+        verygood: { $sum: { $cond: [{ $and: [{ $gte: ["$sgpa", 7.5] }, { $lt: ["$sgpa", 9.0] }] }, 1, 0] } },
+        good: { $sum: { $cond: [{ $and: [{ $gte: ["$sgpa", 6.0] }, { $lt: ["$sgpa", 7.5] }] }, 1, 0] } },
+        improvement: { $sum: { $cond: [{ $lt: ["$sgpa", 6.0] }, 1, 0] } }
+      }
+    }
+  ]);
+
+  const distribution = distributionResult[0] || { excellent: 0, verygood: 0, good: 0, improvement: 0 };
+
+  // Average SGPA Trend by Semester
+  const trends = await Student.aggregate([
+    { $match: { clientId: client._id } },
+    {
+      $group: {
+        _id: "$semester",
+        avg: { $avg: "$sgpa" }
+      }
+    },
+    { $sort: { _id: 1 } },
+    {
+      $project: {
+        _id: 0,
+        semester: "$_id",
+        avg: 1
+      }
+    }
+  ]);
+
+  // Recent 3 students
+  const recentStudents = await Student.find({ clientId: client._id })
+    .sort({ _id: -1 })
+    .limit(3)
+    .lean();
+
   return {
-    students,
-    client
+    client,
+    stats: {
+      totalStudents,
+      averageSgpa: stats.averageSgpa || 0,
+      passingRate: totalStudents > 0 ? Math.floor((stats.passingCount / totalStudents) * 100) : 0,
+      excellenceRate: totalStudents > 0 ? Math.floor((stats.excellenceCount / totalStudents) * 100) : 0
+    },
+    distribution,
+    trends,
+    recentStudents
   };
 };
 
 export const AddStudent = async (identifier: string, name: string, email: string, rollNo: string, semester: number, sgpa: number) => {
-    const existingStudent = await Student.findOne({ email });
+    const normalizedEmail = email.toLowerCase();
+    const existingStudent = await Student.findOne({ email: normalizedEmail });
     if (existingStudent)
-        throw new Error(`Already Exists with Email ${email}`);
+        throw new Error(`Already Exists with Email ${normalizedEmail}`);
     const client = await findClientByIdentifier(identifier);
     if (!client)
         throw new Error("Client not found !");
     const student = await Student.create({
         clientId: client._id,
         name,
-        email,
+        email: normalizedEmail,
         rollNo,
         institutionName: client.institutionName,
         semester,
@@ -45,22 +111,24 @@ export const AddStudent = async (identifier: string, name: string, email: string
 }
 
 export const UpdateStudent = async (oldEmail: string, identifier: string, name: string, email: string, rollNo: string, semester: number, sgpa: number) => {
+    const normalizedOldEmail = oldEmail.toLowerCase();
+    const normalizedEmail = email.toLowerCase();
     const client = await findClientByIdentifier(identifier);
     if (!client)
         throw new Error("Client not found !");
-    const student = await Student.findOne({ email: oldEmail, clientId: client._id });
+    const student = await Student.findOne({ email: normalizedOldEmail, clientId: client._id });
 
     if (!student)
         throw new Error("Student not found !");
 
-    if (oldEmail !== email) {
-        const existingStudent = await Student.findOne({ email });
+    if (normalizedOldEmail !== normalizedEmail) {
+        const existingStudent = await Student.findOne({ email: normalizedEmail });
         if (existingStudent)
-            throw new Error(`Already Exists with Email ${email}`);
+            throw new Error(`Already Exists with Email ${normalizedEmail}`);
     }
 
     student.name = name;
-    student.email = email;
+    student.email = normalizedEmail;
     student.rollNo = rollNo;
     student.semester = semester;
     student.sgpa = sgpa;
@@ -71,15 +139,16 @@ export const UpdateStudent = async (oldEmail: string, identifier: string, name: 
 }
 
 export const DeleteStudent = async (email: string, identifier: string) => {
+    const normalizedEmail = email.toLowerCase();
     const client = await findClientByIdentifier(identifier);
     if (!client)
         throw new Error("Client not found !");
-    const existingStudent = await Student.findOne({ email, clientId: client._id });
+    const existingStudent = await Student.findOne({ email: normalizedEmail, clientId: client._id });
     if (!existingStudent)
         throw new Error("Student not found !");
 
     await Student.deleteOne({
-        email,
+        email: normalizedEmail,
         clientId: client._id
     });
 
@@ -88,15 +157,32 @@ export const DeleteStudent = async (email: string, identifier: string) => {
     return existingStudent;
 }
 
-export const GetStudents = async (identifier: string) => {
-    const client = await findClientByIdentifier(identifier);
-    if (!client)
-        throw new Error("Client not found !");
-    return await Student.find({ clientId: client._id }).lean();
-}
+export const GetStudents = async (
+  identifier: string,
+  page?: number,
+  limit?: number,
+  search?: string,
+  semester?: string,
+  sgpaRange?: string,
+  sortBy?: string,
+  sortOrder?: string
+) => {
+  const client = await findClientByIdentifier(identifier);
+  if (!client) throw new Error("Client not found !");
+
+  const students = await Student.find({ clientId: client._id }).lean();
+
+  return {
+    students,
+    totalStudents: students.length,
+    totalPages: 1,
+    currentPage: 1
+  };
+};
 
 export const UpdatePassword = async (email: string, password: string) => {
-    const client = await Client.findOne({ email });
+    const normalizedEmail = email.toLowerCase();
+    const client = await Client.findOne({ email: normalizedEmail });
     if (!client)
         throw new Error("Client not found !");
     client.password = password;
@@ -110,14 +196,15 @@ export const UpdateProfile = async (identifier: string, institutionName: string,
     if (!client)
         throw new Error("Client not found !");
     
-    if (client.email !== email) {
-        const existingClient = await Client.findOne({ email });
+    const normalizedEmail = email.toLowerCase();
+    if (client.email.toLowerCase() !== normalizedEmail) {
+        const existingClient = await Client.findOne({ email: normalizedEmail });
         if (existingClient)
-            throw new Error(`Already Exists with Email ${email}`);
+            throw new Error(`Already Exists with Email ${normalizedEmail}`);
     }
 
     client.institutionName = institutionName;
-    client.email = email;
+    client.email = normalizedEmail;
     if (password) {
         client.password = password;
     }

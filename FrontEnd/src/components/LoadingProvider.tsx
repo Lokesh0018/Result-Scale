@@ -13,11 +13,15 @@ const updateSubscribers = () => {
 
 // Overwrite window.fetch immediately at module load time!
 const originalFetch = window.fetch;
-window.fetch = async (...args) => {
+window.fetch = async (input: RequestInfo | URL, init?: RequestInit & { skipLoading?: boolean }) => {
+  if (init?.skipLoading) {
+    const { skipLoading, ...cleanInit } = init;
+    return originalFetch(input, cleanInit);
+  }
   activeRequests++;
   updateSubscribers();
   try {
-    return await originalFetch(...args);
+    return await originalFetch(input, init);
   } finally {
     activeRequests--;
     updateSubscribers();
