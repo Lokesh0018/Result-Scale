@@ -26,5 +26,5 @@ app.use("/admin", renderAdminRoutes_1.router);
 app.use("/client", clientRoutes_1.router);
 app.use("/student", studentRoutes_1.router);
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Render Server running on port ${PORT}`);
 });

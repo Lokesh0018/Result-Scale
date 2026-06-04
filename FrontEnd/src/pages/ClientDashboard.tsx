@@ -104,7 +104,7 @@ function ClientDashboard() {
         const queryParams = `page=1&limit=100000000&search=&semester=all&sgpaRange=all&sortBy=rollNo&sortOrder=asc`;
 
         const results = await Promise.allSettled([
-          fetch(`${VITE_RENDER_API_URL}/client/students/${localStorage.getItem("clientId") || localStorage.getItem("userEmail") || clientEmail}?${queryParams}`).then(async res => {
+          fetch(`${VITE_RENDER_API_URL}/client/students/${localStorage.getItem("userEmail") || clientEmail}?${queryParams}`).then(async res => {
             if (!res.ok) throw new Error();
             return res.json();
           }),
@@ -235,7 +235,7 @@ function ClientDashboard() {
     const fetchDashboard = async () => {
       try {
         const results = await Promise.allSettled([
-          fetch(`${VITE_RENDER_API_URL}/client/dashboard/${localStorage.getItem("clientId") || localStorage.getItem("userEmail") || clientEmail}`).then(async res => {
+          fetch(`${VITE_RENDER_API_URL}/client/dashboard/${localStorage.getItem("userEmail") || clientEmail}`).then(async res => {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
           }),
@@ -245,21 +245,41 @@ function ClientDashboard() {
           })
         ]);
 
-        let dashboardData: any = null;
         let clientInfo: any = null;
         let partialFailure = false;
 
+        let renderStats = { totalStudents: 0, averageSgpa: 0, passingRate: 0, excellenceRate: 0 };
+        let railwayStats = { totalStudents: 0, averageSgpa: 0, passingRate: 0, excellenceRate: 0 };
+        let renderDist = { excellent: 0, verygood: 0, good: 0, improvement: 0 };
+        let railwayDist = { excellent: 0, verygood: 0, good: 0, improvement: 0 };
+        let renderTrends: any[] = [];
+        let railwayTrends: any[] = [];
+        let renderRecent: any[] = [];
+        let railwayRecent: any[] = [];
+
         if (results[0].status === "fulfilled") {
-          dashboardData = results[0].value.data;
-          clientInfo = clientInfo || results[0].value.data?.client;
+          const val = results[0].value.data;
+          if (val) {
+            renderStats = val.stats || renderStats;
+            renderDist = val.distribution || renderDist;
+            renderTrends = val.trends || [];
+            renderRecent = val.recentStudents || [];
+            clientInfo = clientInfo || val.client;
+          }
         } else {
           console.error("Render database dashboard load failed:", results[0].reason);
           partialFailure = true;
         }
 
         if (results[1].status === "fulfilled") {
-          dashboardData = dashboardData || results[1].value.data;
-          clientInfo = clientInfo || results[1].value.data?.client;
+          const val = results[1].value.data;
+          if (val) {
+            railwayStats = val.stats || railwayStats;
+            railwayDist = val.distribution || railwayDist;
+            railwayTrends = val.trends || [];
+            railwayRecent = val.recentStudents || [];
+            clientInfo = clientInfo || val.client;
+          }
         } else {
           console.error("Railway database dashboard load failed:", results[1].reason);
           partialFailure = true;
@@ -269,12 +289,73 @@ function ClientDashboard() {
           throw new Error("Both database servers failed to respond.");
         }
 
-        if (dashboardData) {
-          setDashboardStats(dashboardData.stats || { totalStudents: 0, averageSgpa: 0, passingRate: 0, excellenceRate: 0 });
-          setSgpaDistribution(dashboardData.distribution || { excellent: 0, verygood: 0, good: 0, improvement: 0 });
-          setSgpaTrends(dashboardData.trends || []);
-          setRecentStudents(dashboardData.recentStudents || []);
-        }
+        // Merge statistics
+        const totalStudents = renderStats.totalStudents + railwayStats.totalStudents;
+        const averageSgpa = totalStudents > 0
+          ? ((renderStats.averageSgpa * renderStats.totalStudents) + (railwayStats.averageSgpa * railwayStats.totalStudents)) / totalStudents
+          : 0;
+
+        const renderPassingCount = Math.round((renderStats.passingRate / 100) * renderStats.totalStudents);
+        const railwayPassingCount = Math.round((railwayStats.passingRate / 100) * railwayStats.totalStudents);
+        const passingRate = totalStudents > 0
+          ? Math.floor(((renderPassingCount + railwayPassingCount) / totalStudents) * 100)
+          : 0;
+
+        const renderExcellenceCount = Math.round((renderStats.excellenceRate / 100) * renderStats.totalStudents);
+        const railwayExcellenceCount = Math.round((railwayStats.excellenceRate / 100) * railwayStats.totalStudents);
+        const excellenceRate = totalStudents > 0
+          ? Math.floor(((renderExcellenceCount + railwayExcellenceCount) / totalStudents) * 100)
+          : 0;
+
+        setDashboardStats({
+          totalStudents,
+          averageSgpa,
+          passingRate,
+          excellenceRate
+        });
+
+        // Merge SGPA distribution buckets
+        setSgpaDistribution({
+          excellent: renderDist.excellent + railwayDist.excellent,
+          verygood: renderDist.verygood + railwayDist.verygood,
+          good: renderDist.good + railwayDist.good,
+          improvement: renderDist.improvement + railwayDist.improvement
+        });
+
+        // Merge SGPA trends by semester
+        const semesterMap = new Map<number, { renderAvg?: number; railwayAvg?: number }>();
+        renderTrends.forEach(t => {
+          semesterMap.set(t.semester, { renderAvg: t.avg });
+        });
+        railwayTrends.forEach(t => {
+          const existing = semesterMap.get(t.semester);
+          if (existing) {
+            existing.railwayAvg = t.avg;
+          } else {
+            semesterMap.set(t.semester, { railwayAvg: t.avg });
+          }
+        });
+
+        const mergedTrends = Array.from(semesterMap.entries()).map(([semester, data]) => {
+          let avg = 0;
+          if (data.renderAvg !== undefined && data.railwayAvg !== undefined) {
+            avg = (data.renderAvg + data.railwayAvg) / 2;
+          } else if (data.renderAvg !== undefined) {
+            avg = data.renderAvg;
+          } else if (data.railwayAvg !== undefined) {
+            avg = data.railwayAvg;
+          }
+          return { semester, avg };
+        }).sort((a, b) => a.semester - b.semester);
+
+        setSgpaTrends(mergedTrends);
+
+        // Merge recent students sorted by _id descending
+        const mergedRecent = [...renderRecent, ...railwayRecent]
+          .sort((a, b) => (b._id || "").localeCompare(a._id || ""))
+          .slice(0, 3);
+
+        setRecentStudents(mergedRecent);
 
         if (clientInfo) {
           setClientName(clientInfo.institutionName);

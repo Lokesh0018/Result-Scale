@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/request-quotation.css'
 
-const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL || 'http://localhost:3000';
+const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API_URL || 'http://localhost:3000';
 
 function RequestQuotation() {
   const { showToast } = useToast();
@@ -167,7 +167,7 @@ function RequestQuotation() {
     };
 
     try {
-      const response = await fetch(`${VITE_RENDER_API_URL}/contact/quotation-request`, {
+      const response = await fetch(`${VITE_RAILWAY_API_URL}/contact/quotation-request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

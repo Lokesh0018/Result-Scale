@@ -5,8 +5,12 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "cross-env NODE_ENV=development ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev:railway": "cross-env NODE_ENV=development ts-node-dev --respawn --transpile-only src/railwayServer.ts",
+    "dev:render": "cross-env NODE_ENV=development ts-node-dev --respawn --transpile-only src/renderServer.ts",
     "build": "tsc",
-    "start": "cross-env NODE_ENV=production node dist/server.js"
+    "start": "cross-env NODE_ENV=production node dist/server.js",
+    "start:railway": "cross-env NODE_ENV=production node dist/railwayServer.js",
+    "start:render": "cross-env NODE_ENV=production node dist/renderServer.js"
   },
   "keywords": [],
   "author": "",

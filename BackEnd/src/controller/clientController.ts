@@ -2,6 +2,8 @@ import express, { Request, Response } from "express"
 import { GetDashboard, AddStudent, UpdateStudent, DeleteStudent, GetStudents, UpdatePassword, UpdateProfile } from "../service/clientService"
 import { LogActivity } from "../service/logService"
 import Client from "../models/Client"
+import Student from "../models/Student"
+import { checkAndLogDuplicate } from "../utils/dbErrorHandler"
 
 export const getDashboard = async (req: Request, res: Response) => {
     try {
@@ -44,11 +46,17 @@ export const addStudent = async (req: Request, res: Response) => {
     }
     catch (err: any) {
         await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Creation Failed", "student", `Failed to add student ${name || ""}: ${err.message}`, "failure");
-        if (err.message.includes("Already Exists"))
+        
+        const client = await Client.findOne({ email: normalizedClientEmail });
+        const clientId = client ? client._id : undefined;
+
+        const { isDuplicate, message } = await checkAndLogDuplicate(err, Student, { email: normalizedEmail, rollNo, clientId });
+        if (isDuplicate) {
             return res.status(409).json({
                 success: false,
-                message: err.message
+                message
             });
+        }
 
         return res.status(500).json({
             success: false,
@@ -82,11 +90,21 @@ export const updateStudent = async (req: Request, res: Response) => {
     }
     catch (err: any) {
         await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Update Failed", "student", `Failed to update student ${oldEmail}: ${err.message}`, "failure");
-        if (err.message.includes("Already Exists"))
+        
+        const client = await Client.findOne({ email: normalizedClientEmail });
+        const clientId = client ? client._id : undefined;
+
+        // Find student by oldEmail to check self-update
+        const existingStudentForId = await Student.findOne({ email: normalizedOldEmail, clientId }).lean();
+        const student_id = existingStudentForId ? existingStudentForId._id : undefined;
+
+        const { isDuplicate, message } = await checkAndLogDuplicate(err, Student, { email: normalizedEmail, rollNo, clientId, _id: student_id });
+        if (isDuplicate) {
             return res.status(409).json({
                 success: false,
-                message: err.message
+                message
             });
+        }
 
         if (err.message === "Student not found !")
             return res.status(404).json({
@@ -204,6 +222,18 @@ export const updateProfile = async (req: Request, res: Response) => {
     }
     catch (err: any) {
         await LogActivity(actorEmail.toLowerCase(), actorRole, "Profile Update Failed", "client", `Failed to update client profile: ${err.message}`, "failure");
+        
+        const client = await Client.findOne({ email: normalizedClientEmail }).lean();
+        const client_id = client ? client._id : undefined;
+
+        const { isDuplicate, message } = await checkAndLogDuplicate(err, Client, { email: normalizedEmail, _id: client_id });
+        if (isDuplicate) {
+            return res.status(409).json({
+                success: false,
+                message
+            });
+        }
+
         return res.status(500).json({
             success: false,
             message: err.message

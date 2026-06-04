@@ -1,8 +1,13 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteQuotationRequest = exports.updateQuotationRequestStatus = exports.getQuotationRequests = exports.deleteInquiry = exports.updateInquiryStatus = exports.getInquiries = exports.getActivityLogs = exports.updatePassword = exports.getStudents = exports.deleteClient = exports.updateClient = exports.addClient = exports.getDashboard = void 0;
 const adminService_1 = require("../service/adminService");
 const logService_1 = require("../service/logService");
+const dbErrorHandler_1 = require("../utils/dbErrorHandler");
+const Client_1 = __importDefault(require("../models/Client"));
 const getDashboard = async (req, res) => {
     try {
         const data = await (0, adminService_1.GetDashboard)();
@@ -41,15 +46,13 @@ const addClient = async (req, res) => {
     }
     catch (err) {
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Creation Failed", "client", `Failed to create client ${email || ""}: ${err.message}`, "failure");
-        const isDuplicate = err.message.includes("Already Exists") ||
-            err.code === 11000 ||
-            err.message.toLowerCase().includes("duplicate") ||
-            err.message.toLowerCase().includes("unique index");
-        if (isDuplicate)
+        const { isDuplicate, message } = await (0, dbErrorHandler_1.checkAndLogDuplicate)(err, Client_1.default, { email });
+        if (isDuplicate) {
             return res.status(409).json({
                 success: false,
-                message: `Already Exists with Email ${email.toLowerCase()}`
+                message
             });
+        }
         if (err.message === "Date was Expired !" || err.message === "Invalid portal expiry date !")
             return res.status(400).json({
                 success: false,
@@ -83,15 +86,16 @@ const updateClient = async (req, res) => {
     }
     catch (err) {
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Update Failed", "client", `Failed to update client ${oldEmail}: ${err.message}`, "failure");
-        const isDuplicate = err.message.includes("Already Exists") ||
-            err.code === 11000 ||
-            err.message.toLowerCase().includes("duplicate") ||
-            err.message.toLowerCase().includes("unique index");
-        if (isDuplicate)
+        // Find existing client to get its _id for checking self-update
+        const existingClientForId = await Client_1.default.findOne({ email: oldEmail.toLowerCase() }).lean();
+        const client_id = existingClientForId ? existingClientForId._id : undefined;
+        const { isDuplicate, message } = await (0, dbErrorHandler_1.checkAndLogDuplicate)(err, Client_1.default, { email, _id: client_id });
+        if (isDuplicate) {
             return res.status(409).json({
                 success: false,
-                message: `Already Exists with Email ${email.toLowerCase()}`
+                message
             });
+        }
         if (err.message === "Client not found !")
             return res.status(404).json({
                 success: false,

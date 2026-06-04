@@ -1,8 +1,14 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateProfile = exports.updatePassword = exports.getStudents = exports.deleteStudent = exports.updateStudent = exports.addStudent = exports.getDashboard = void 0;
 const clientService_1 = require("../service/clientService");
 const logService_1 = require("../service/logService");
+const Client_1 = __importDefault(require("../models/Client"));
+const Student_1 = __importDefault(require("../models/Student"));
+const dbErrorHandler_1 = require("../utils/dbErrorHandler");
 const getDashboard = async (req, res) => {
     try {
         const clientEmail = req.params.clientEmail;
@@ -44,11 +50,15 @@ const addStudent = async (req, res) => {
     }
     catch (err) {
         await (0, logService_1.LogActivity)(actorEmail.toLowerCase(), actorRole, "Student Creation Failed", "student", `Failed to add student ${name || ""}: ${err.message}`, "failure");
-        if (err.message.includes("Already Exists"))
+        const client = await Client_1.default.findOne({ email: normalizedClientEmail });
+        const clientId = client ? client._id : undefined;
+        const { isDuplicate, message } = await (0, dbErrorHandler_1.checkAndLogDuplicate)(err, Student_1.default, { email: normalizedEmail, rollNo, clientId });
+        if (isDuplicate) {
             return res.status(409).json({
                 success: false,
-                message: err.message
+                message
             });
+        }
         return res.status(500).json({
             success: false,
             message: err.message
@@ -80,11 +90,18 @@ const updateStudent = async (req, res) => {
     }
     catch (err) {
         await (0, logService_1.LogActivity)(actorEmail.toLowerCase(), actorRole, "Student Update Failed", "student", `Failed to update student ${oldEmail}: ${err.message}`, "failure");
-        if (err.message.includes("Already Exists"))
+        const client = await Client_1.default.findOne({ email: normalizedClientEmail });
+        const clientId = client ? client._id : undefined;
+        // Find student by oldEmail to check self-update
+        const existingStudentForId = await Student_1.default.findOne({ email: normalizedOldEmail, clientId }).lean();
+        const student_id = existingStudentForId ? existingStudentForId._id : undefined;
+        const { isDuplicate, message } = await (0, dbErrorHandler_1.checkAndLogDuplicate)(err, Student_1.default, { email: normalizedEmail, rollNo, clientId, _id: student_id });
+        if (isDuplicate) {
             return res.status(409).json({
                 success: false,
-                message: err.message
+                message
             });
+        }
         if (err.message === "Student not found !")
             return res.status(404).json({
                 success: false,
@@ -198,6 +215,15 @@ const updateProfile = async (req, res) => {
     }
     catch (err) {
         await (0, logService_1.LogActivity)(actorEmail.toLowerCase(), actorRole, "Profile Update Failed", "client", `Failed to update client profile: ${err.message}`, "failure");
+        const client = await Client_1.default.findOne({ email: normalizedClientEmail }).lean();
+        const client_id = client ? client._id : undefined;
+        const { isDuplicate, message } = await (0, dbErrorHandler_1.checkAndLogDuplicate)(err, Client_1.default, { email: normalizedEmail, _id: client_id });
+        if (isDuplicate) {
+            return res.status(409).json({
+                success: false,
+                message
+            });
+        }
         return res.status(500).json({
             success: false,
             message: err.message

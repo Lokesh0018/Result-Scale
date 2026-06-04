@@ -97,6 +97,12 @@ export const AddStudent = async (identifier: string, name: string, email: string
     const client = await findClientByIdentifier(identifier);
     if (!client)
         throw new Error("Client not found !");
+
+    // Pre-check roll number uniqueness within the client's institution
+    const existingRollNo = await Student.findOne({ rollNo, clientId: client._id });
+    if (existingRollNo)
+        throw new Error(`Already Exists with Roll Number ${rollNo}`);
+
     const student = await Student.create({
         clientId: client._id,
         name,
@@ -125,6 +131,13 @@ export const UpdateStudent = async (oldEmail: string, identifier: string, name: 
         const existingStudent = await Student.findOne({ email: normalizedEmail });
         if (existingStudent)
             throw new Error(`Already Exists with Email ${normalizedEmail}`);
+    }
+
+    if (student.rollNo !== rollNo) {
+        // Pre-check roll number uniqueness if it is changing
+        const existingRollNo = await Student.findOne({ rollNo, clientId: client._id });
+        if (existingRollNo)
+            throw new Error(`Already Exists with Roll Number ${rollNo}`);
     }
 
     student.name = name;

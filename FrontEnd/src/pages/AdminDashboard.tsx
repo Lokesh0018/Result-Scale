@@ -240,7 +240,7 @@ function AdminDashboard() {
   const fetchQuotationRequests = () => {
     setLoadingQuotations(true);
     setQuotationsError(null);
-    fetch(`${VITE_RENDER_API_URL}/admin/quotation-requests`, {
+    fetch(`${VITE_RAILWAY_API_URL}/admin/quotation-requests`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -314,7 +314,7 @@ function AdminDashboard() {
       }
     }
 
-    fetch(`${VITE_RENDER_API_URL}/admin/quotation-requests/${id}/status`, {
+    fetch(`${VITE_RAILWAY_API_URL}/admin/quotation-requests/${id}/status`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -354,7 +354,7 @@ function AdminDashboard() {
       }
     }
 
-    fetch(`${VITE_RENDER_API_URL}/admin/quotation-requests/${id}`, {
+    fetch(`${VITE_RAILWAY_API_URL}/admin/quotation-requests/${id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -385,7 +385,7 @@ function AdminDashboard() {
   const fetchInquiries = () => {
     setLoadingInquiries(true);
     setInquiryError(null);
-    fetch(`${VITE_RENDER_API_URL}/admin/inquiries`, {
+    fetch(`${VITE_RAILWAY_API_URL}/admin/inquiries`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -408,7 +408,7 @@ function AdminDashboard() {
   };
 
   const handleUpdateInquiryStatus = async (id: string, newStatus: 'unread' | 'read') => {
-    fetch(`${VITE_RENDER_API_URL}/admin/inquiries/${id}/status`, {
+    fetch(`${VITE_RAILWAY_API_URL}/admin/inquiries/${id}/status`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -433,7 +433,7 @@ function AdminDashboard() {
   };
 
   const handleDeleteInquiry = async (id: string) => {
-    fetch(`${VITE_RENDER_API_URL}/admin/inquiries/${id}`, {
+    fetch(`${VITE_RAILWAY_API_URL}/admin/inquiries/${id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -544,49 +544,20 @@ function AdminDashboard() {
 
 
   const fetchLogs = () => {
-    Promise.allSettled([
-      fetch(`${VITE_RENDER_API_URL}/admin/logs`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        }
-      }).then(async res => {
-        if (!res.ok) throw new Error();
-        return res.json();
-      }),
-      fetch(`${VITE_RAILWAY_API_URL}/admin/logs`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        }
-      }).then(async res => {
-        if (!res.ok) throw new Error();
-        return res.json();
-      })
-    ]).then((results) => {
-      let allLogs: any[] = [];
-      let partialFailure = false;
-
-      if (results[0].status === "fulfilled") {
-        allLogs = [...allLogs, ...(results[0].value.logs || [])];
-      } else {
-        console.error("Render logs fetch failed:", results[0].reason);
-        partialFailure = true;
+    setLogs([]);
+    fetch(`${VITE_RENDER_API_URL}/admin/logs`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
       }
-
-      if (results[1].status === "fulfilled") {
-        allLogs = [...allLogs, ...(results[1].value.logs || [])];
-      } else {
-        console.error("Railway logs fetch failed:", results[1].reason);
-        partialFailure = true;
-      }
-
-      setLogs(allLogs);
-
-      if (partialFailure) {
-        showToast("Warning: Failed to fetch activity logs from one of the servers.", "warning");
-      }
+    }).then(async res => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to fetch activity logs");
+      return data;
+    }).then((data) => {
+      setLogs(data.logs || []);
     }).catch((err) => {
+      console.error("Logs fetch failed:", err);
       showToast(err.message || "Failed to load logs.", 'error');
     });
   };
@@ -813,10 +784,17 @@ function AdminDashboard() {
           (r) => r.status === "fulfilled"
         ).length;
 
-        showToast(
-          `Client added to ${successCount}/${urls.length} server(s) successfully`,
-          "success"
-        );
+        if (successCount < urls.length) {
+          showToast(
+            `Warning: Client sync partially failed. Added to only ${successCount}/${urls.length} server(s).`,
+            "warning"
+          );
+        } else {
+          showToast(
+            "Client added successfully on all servers.",
+            "success"
+          );
+        }
       });
     }
     else {
@@ -898,10 +876,17 @@ function AdminDashboard() {
             (result) => result.status === "fulfilled"
           ).length;
 
-          showToast(
-            `Client updated successfully on ${successCount}/${urls.length} server(s)`,
-            "success"
-          );
+          if (successCount < urls.length) {
+            showToast(
+              `Warning: Client sync partially failed. Updated on only ${successCount}/${urls.length} server(s).`,
+              "warning"
+            );
+          } else {
+            showToast(
+              "Client updated successfully on all servers.",
+              "success"
+            );
+          }
         })
         .catch((err) => {
           showToast(err.message, "error");
@@ -952,7 +937,17 @@ function AdminDashboard() {
         updateClientLists(updatedClients);
 
         const successCount = results.filter(r => r.status === "fulfilled").length;
-        showToast(`Client deleted successfully on ${successCount}/${urls.length} server(s)`, "success");
+        if (successCount < urls.length) {
+          showToast(
+            `Warning: Client sync partially failed. Deleted from only ${successCount}/${urls.length} server(s).`,
+            "warning"
+          );
+        } else {
+          showToast(
+            "Client deleted successfully from all servers.",
+            "success"
+          );
+        }
       }).catch((err) => {
         showToast(err.message, "error");
       });

@@ -5,6 +5,8 @@ import {
   GetQuotationRequests, UpdateQuotationRequestStatus, DeleteQuotationRequest
 } from "../service/adminService";
 import { GetActivityLogs, LogActivity } from "../service/logService";
+import { checkAndLogDuplicate } from "../utils/dbErrorHandler";
+import Client from "../models/Client";
 
 export const getDashboard = async (req: Request, res: Response) => {
     try {
@@ -52,15 +54,15 @@ export const addClient = async (req: Request, res: Response) => {
     }
     catch (err: any) {
         await LogActivity(actorEmail, actorRole, "Client Creation Failed", "client", `Failed to create client ${email || ""}: ${err.message}`, "failure");
-        const isDuplicate = err.message.includes("Already Exists") || 
-                            err.code === 11000 || 
-                            err.message.toLowerCase().includes("duplicate") || 
-                            err.message.toLowerCase().includes("unique index");
-        if (isDuplicate)
+        
+        const { isDuplicate, message } = await checkAndLogDuplicate(err, Client, { email });
+        if (isDuplicate) {
             return res.status(409).json({
                 success: false,
-                message: `Already Exists with Email ${email.toLowerCase()}`
+                message
             });
+        }
+
         if (err.message === "Date was Expired !" || err.message === "Invalid portal expiry date !")
             return res.status(400).json({
                 success: false,
@@ -103,15 +105,18 @@ export const updateClient = async (req: Request, res: Response) => {
     }
     catch (err: any) {
         await LogActivity(actorEmail, actorRole, "Client Update Failed", "client", `Failed to update client ${oldEmail}: ${err.message}`, "failure");
-        const isDuplicate = err.message.includes("Already Exists") || 
-                            err.code === 11000 || 
-                            err.message.toLowerCase().includes("duplicate") || 
-                            err.message.toLowerCase().includes("unique index");
-        if (isDuplicate)
+        
+        // Find existing client to get its _id for checking self-update
+        const existingClientForId = await Client.findOne({ email: oldEmail.toLowerCase() }).lean();
+        const client_id = existingClientForId ? existingClientForId._id : undefined;
+
+        const { isDuplicate, message } = await checkAndLogDuplicate(err, Client, { email, _id: client_id });
+        if (isDuplicate) {
             return res.status(409).json({
                 success: false,
-                message: `Already Exists with Email ${email.toLowerCase()}`
+                message
             });
+        }
 
         if (err.message === "Client not found !")
             return res.status(404).json({
