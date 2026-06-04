@@ -11,8 +11,8 @@ import { useTheme } from "../components/ThemeProvider";
 import { useToast } from '../components/Toast';
 import { Student } from '../types/Types';
 
-const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL;
-const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API_URL;
+const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API || (import.meta as any).env.VITE_RENDER_API_URL;
+const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API || (import.meta as any).env.VITE_RAILWAY_API_URL;
 
 function ClientDashboard() {
   const { showToast } = useToast();
@@ -42,7 +42,6 @@ function ClientDashboard() {
   });
   const [sgpaTrends, setSgpaTrends] = useState<{ semester: number; avg: number }[]>([]);
   const [recentStudents, setRecentStudents] = useState<Student[]>([]);
-  const clientId = localStorage.getItem("clientId");
   const [addOrUpdate, setAddOrUpdate] = useState(true);
   const [deleteModal, setDeleteModal] = useState(false);
   const [semester, setSemester] = useState(0);
@@ -234,140 +233,71 @@ function ClientDashboard() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const results = await Promise.allSettled([
-          fetch(`${VITE_RENDER_API_URL}/client/dashboard/${localStorage.getItem("userEmail") || clientEmail}`).then(async res => {
+        const currentClientEmail = localStorage.getItem("userEmail") || clientEmail;
+        const [renderStudentsResponse, railwayStudentsResponse, renderClientResponse] = await Promise.all([
+          fetch(`${VITE_RENDER_API_URL}/client/students/${currentClientEmail}`).then(async res => {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
           }),
-          fetch(`${VITE_RAILWAY_API_URL}/client/dashboard/${localStorage.getItem("userEmail") || clientEmail}`).then(async res => {
+          fetch(`${VITE_RAILWAY_API_URL}/client/students/${currentClientEmail}`).then(async res => {
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+          }),
+          fetch(`${VITE_RENDER_API_URL}/client/dashboard/${currentClientEmail}`).then(async res => {
             if (!res.ok) throw new Error(await res.text());
             return res.json();
           })
         ]);
 
-        let clientInfo: any = null;
-        let partialFailure = false;
-
-        let renderStats = { totalStudents: 0, averageSgpa: 0, passingRate: 0, excellenceRate: 0 };
-        let railwayStats = { totalStudents: 0, averageSgpa: 0, passingRate: 0, excellenceRate: 0 };
-        let renderDist = { excellent: 0, verygood: 0, good: 0, improvement: 0 };
-        let railwayDist = { excellent: 0, verygood: 0, good: 0, improvement: 0 };
-        let renderTrends: any[] = [];
-        let railwayTrends: any[] = [];
-        let renderRecent: any[] = [];
-        let railwayRecent: any[] = [];
-
-        if (results[0].status === "fulfilled") {
-          const val = results[0].value.data;
-          if (val) {
-            renderStats = val.stats || renderStats;
-            renderDist = val.distribution || renderDist;
-            renderTrends = val.trends || [];
-            renderRecent = val.recentStudents || [];
-            clientInfo = clientInfo || val.client;
-          }
-        } else {
-          console.error("Render database dashboard load failed:", results[0].reason);
-          partialFailure = true;
-        }
-
-        if (results[1].status === "fulfilled") {
-          const val = results[1].value.data;
-          if (val) {
-            railwayStats = val.stats || railwayStats;
-            railwayDist = val.distribution || railwayDist;
-            railwayTrends = val.trends || [];
-            railwayRecent = val.recentStudents || [];
-            clientInfo = clientInfo || val.client;
-          }
-        } else {
-          console.error("Railway database dashboard load failed:", results[1].reason);
-          partialFailure = true;
-        }
-
-        if (results[0].status === "rejected" && results[1].status === "rejected") {
-          throw new Error("Both database servers failed to respond.");
-        }
-
-        // Merge statistics
-        const totalStudents = renderStats.totalStudents + railwayStats.totalStudents;
+        const oddStudents = renderStudentsResponse.students || [];
+        const evenStudents = railwayStudentsResponse.students || [];
+        const mergedStudents = [...oddStudents, ...evenStudents];
+        const totalStudents = mergedStudents.length;
         const averageSgpa = totalStudents > 0
-          ? ((renderStats.averageSgpa * renderStats.totalStudents) + (railwayStats.averageSgpa * railwayStats.totalStudents)) / totalStudents
+          ? mergedStudents.reduce((sum, student) => sum + Number(student.sgpa || 0), 0) / totalStudents
           : 0;
-
-        const renderPassingCount = Math.round((renderStats.passingRate / 100) * renderStats.totalStudents);
-        const railwayPassingCount = Math.round((railwayStats.passingRate / 100) * railwayStats.totalStudents);
-        const passingRate = totalStudents > 0
-          ? Math.floor(((renderPassingCount + railwayPassingCount) / totalStudents) * 100)
-          : 0;
-
-        const renderExcellenceCount = Math.round((renderStats.excellenceRate / 100) * renderStats.totalStudents);
-        const railwayExcellenceCount = Math.round((railwayStats.excellenceRate / 100) * railwayStats.totalStudents);
-        const excellenceRate = totalStudents > 0
-          ? Math.floor(((renderExcellenceCount + railwayExcellenceCount) / totalStudents) * 100)
-          : 0;
+        const passingCount = mergedStudents.filter((student) => Number(student.sgpa || 0) >= 5).length;
+        const excellenceCount = mergedStudents.filter((student) => Number(student.sgpa || 0) >= 9).length;
 
         setDashboardStats({
           totalStudents,
           averageSgpa,
-          passingRate,
-          excellenceRate
+          passingRate: totalStudents > 0 ? Math.floor((passingCount / totalStudents) * 100) : 0,
+          excellenceRate: totalStudents > 0 ? Math.floor((excellenceCount / totalStudents) * 100) : 0
         });
 
-        // Merge SGPA distribution buckets
-        setSgpaDistribution({
-          excellent: renderDist.excellent + railwayDist.excellent,
-          verygood: renderDist.verygood + railwayDist.verygood,
-          good: renderDist.good + railwayDist.good,
-          improvement: renderDist.improvement + railwayDist.improvement
+        setSgpaDistribution(mergedStudents.reduce((acc, student) => {
+          const sgpa = Number(student.sgpa || 0);
+          if (sgpa >= 9) acc.excellent += 1;
+          else if (sgpa >= 7.5) acc.verygood += 1;
+          else if (sgpa >= 6) acc.good += 1;
+          else acc.improvement += 1;
+          return acc;
+        }, { excellent: 0, verygood: 0, good: 0, improvement: 0 }));
+
+        const semesterMap = new Map<number, { total: number; count: number }>();
+        mergedStudents.forEach((student) => {
+          const semester = Number(student.semester);
+          const current = semesterMap.get(semester) || { total: 0, count: 0 };
+          current.total += Number(student.sgpa || 0);
+          current.count += 1;
+          semesterMap.set(semester, current);
         });
+        setSgpaTrends(Array.from(semesterMap.entries())
+          .map(([semester, value]) => ({ semester, avg: value.count ? value.total / value.count : 0 }))
+          .sort((a, b) => a.semester - b.semester));
 
-        // Merge SGPA trends by semester
-        const semesterMap = new Map<number, { renderAvg?: number; railwayAvg?: number }>();
-        renderTrends.forEach(t => {
-          semesterMap.set(t.semester, { renderAvg: t.avg });
-        });
-        railwayTrends.forEach(t => {
-          const existing = semesterMap.get(t.semester);
-          if (existing) {
-            existing.railwayAvg = t.avg;
-          } else {
-            semesterMap.set(t.semester, { railwayAvg: t.avg });
-          }
-        });
-
-        const mergedTrends = Array.from(semesterMap.entries()).map(([semester, data]) => {
-          let avg = 0;
-          if (data.renderAvg !== undefined && data.railwayAvg !== undefined) {
-            avg = (data.renderAvg + data.railwayAvg) / 2;
-          } else if (data.renderAvg !== undefined) {
-            avg = data.renderAvg;
-          } else if (data.railwayAvg !== undefined) {
-            avg = data.railwayAvg;
-          }
-          return { semester, avg };
-        }).sort((a, b) => a.semester - b.semester);
-
-        setSgpaTrends(mergedTrends);
-
-        // Merge recent students sorted by _id descending
-        const mergedRecent = [...renderRecent, ...railwayRecent]
+        setRecentStudents([...mergedStudents]
           .sort((a, b) => (b._id || "").localeCompare(a._id || ""))
-          .slice(0, 3);
+          .slice(0, 3));
 
-        setRecentStudents(mergedRecent);
-
+        const clientInfo = renderClientResponse.data?.client;
         if (clientInfo) {
           setClientName(clientInfo.institutionName);
           setClientEmail(clientInfo.email);
           setClientExpiry(clientInfo.portalExpiryDate?.split("T")[0] || "");
           localStorage.setItem("institutionName", clientInfo.institutionName);
         }
-
-        if (partialFailure) {
-          showToast("Warning: Failed to fetch records from one of the database servers.", "warning");
-        }
-
       } catch (err: any) {
         showToast(err.message || "Failed to load dashboard data.", "error");
       }
@@ -425,7 +355,7 @@ function ClientDashboard() {
     }
     if (addOrUpdate) {
       const apiUrl =
-        convertLastChar(formData.rollNo) % 2 === 0
+        convertLastChar(formData.rollNo) % 2 === 1
           ? VITE_RENDER_API_URL
           : VITE_RAILWAY_API_URL;
 
@@ -436,7 +366,6 @@ function ClientDashboard() {
         },
         body: JSON.stringify({
           ...formData,
-          clientId: localStorage.getItem("clientId") || clientId,
           clientEmail: localStorage.getItem("userEmail") || clientEmail,
         }),
       })
@@ -459,7 +388,7 @@ function ClientDashboard() {
     }
     else {
       const apiUrl =
-        convertLastChar(formData.rollNo) % 2 === 0
+        convertLastChar(formData.rollNo) % 2 === 1
           ? VITE_RENDER_API_URL
           : VITE_RAILWAY_API_URL;
 
@@ -470,7 +399,6 @@ function ClientDashboard() {
         },
         body: JSON.stringify({
           ...formData,
-          clientId: localStorage.getItem("clientId") || clientId,
           clientEmail: localStorage.getItem("userEmail") || clientEmail,
         }),
       })
@@ -498,7 +426,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
   e.preventDefault();
 
   const apiUrl =
-    convertLastChar(formData.rollNo) % 2 === 0
+    convertLastChar(formData.rollNo) % 2 === 1
       ? VITE_RENDER_API_URL
       : VITE_RAILWAY_API_URL;
 
@@ -508,7 +436,6 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      clientId: localStorage.getItem("clientId") || clientId,
       clientEmail: localStorage.getItem("userEmail") || clientEmail,
     }),
   })
@@ -590,7 +517,6 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
       }
 
       return {
-        clientId: localStorage.getItem("clientId") || clientId,
         clientEmail: localStorage.getItem("userEmail") || clientEmail,
         rollNo: getValue("rollNo"),
         name: getValue("name"),
@@ -617,7 +543,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
 
       const uploadResponses = await Promise.allSettled(
         studentsFromCsv.map((student) => {
-          const apiUrl = convertLastChar(student.rollNo) % 2 === 0
+          const apiUrl = convertLastChar(student.rollNo) % 2 === 1
           ? VITE_RENDER_API_URL
           : VITE_RAILWAY_API_URL;
           return fetch(`${apiUrl}/client/students`, {

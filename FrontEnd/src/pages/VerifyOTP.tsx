@@ -5,8 +5,8 @@ import { BarChart3, Mail } from 'lucide-react'
 import '../styles/student.css'
 import { useToast } from '../components/Toast';
 
-const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL;
-const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API_URL;
+const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API || (import.meta as any).env.VITE_RENDER_API_URL;
+const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API || (import.meta as any).env.VITE_RAILWAY_API_URL;
 
 function VerifyOTP() {
   const location = useLocation();
@@ -74,7 +74,7 @@ function VerifyOTP() {
 
     try {
       const apiUrl =
-        convertLastChar(rollNo) % 2 === 0
+        convertLastChar(rollNo) % 2 === 1
           ? VITE_RENDER_API_URL
           : VITE_RAILWAY_API_URL;
 
@@ -121,7 +121,7 @@ function VerifyOTP() {
 
     try {
       const apiUrl =
-        convertLastChar(rollNo) % 2 === 0
+        convertLastChar(rollNo) % 2 === 1
           ? VITE_RENDER_API_URL
           : VITE_RAILWAY_API_URL;
 

@@ -4,7 +4,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeleteQuotationRequest = exports.UpdateQuotationRequestStatus = exports.GetQuotationRequests = exports.DeleteInquiry = exports.UpdateInquiryStatus = exports.GetInquiries = exports.UpdatePassword = exports.GetStudents = exports.DeleteClient = exports.UpdateClient = exports.AddClient = exports.GetDashboard = void 0;
-const mongoose_1 = __importDefault(require("mongoose"));
 const Admin_1 = __importDefault(require("../models/Admin"));
 const Client_1 = __importDefault(require("../models/Client"));
 const Student_1 = __importDefault(require("../models/Student"));
@@ -26,9 +25,7 @@ const AddClient = async (institutionName, email, password, portalExpiryDate, ins
     startOfToday.setHours(0, 0, 0, 0);
     if (portalExpiryDate.getTime() < startOfToday.getTime())
         throw new Error("Date was Expired !");
-    const clientId = new mongoose_1.default.Types.ObjectId();
     const client = await Client_1.default.create({
-        _id: clientId,
         email: normalizedEmail,
         password,
         role: "client",
@@ -89,19 +86,18 @@ const DeleteClient = async (email) => {
     const existingClient = await Client_1.default.findOne({ email: normalizedEmail });
     if (!existingClient)
         throw new Error("Client not found !");
-    await Client_1.default.deleteOne({ email: normalizedEmail });
-    await Student_1.default.deleteMany({ clientId: existingClient._id });
-    // Propagate student deletion to Railway
-    try {
-        const railwayUrl = process.env.RAILWAY_API_URL || "http://localhost:3000";
-        await fetch(`${railwayUrl}/client/internal/delete-students/${existingClient._id}`, {
+    const railwayUrl = process.env.RAILWAY_API_URL || "http://localhost:3000";
+    await Promise.all([
+        Client_1.default.deleteOne({ email: normalizedEmail }),
+        Student_1.default.deleteMany({ clientEmail: normalizedEmail }),
+        fetch(`${railwayUrl}/client/internal/delete-students/${encodeURIComponent(normalizedEmail)}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" }
-        });
-    }
-    catch (err) {
-        console.error("Failed to propagate student deletion to Railway:", err);
-    }
+        }).catch((err) => {
+            console.error("Failed to propagate student deletion to Railway:", err);
+            return null;
+        })
+    ]);
     const { password: _password, ...clientDto } = existingClient.toObject();
     return {
         ...clientDto,

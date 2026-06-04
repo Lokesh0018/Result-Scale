@@ -12,8 +12,8 @@ import { useTheme } from "../components/ThemeProvider";
 import { useToast } from '../components/Toast';
 import { Client, Student } from '../types/Types';
 
-const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL;
-const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API_URL;
+const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API || (import.meta as any).env.VITE_RENDER_API_URL;
+const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API || (import.meta as any).env.VITE_RAILWAY_API_URL;
 
 function AdminDashboard() {
   const { showToast } = useToast();
@@ -385,7 +385,7 @@ function AdminDashboard() {
   const fetchInquiries = () => {
     setLoadingInquiries(true);
     setInquiryError(null);
-    fetch(`${VITE_RAILWAY_API_URL}/admin/inquiries`, {
+    fetch(`${VITE_RENDER_API_URL}/admin/inquiries`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -408,7 +408,7 @@ function AdminDashboard() {
   };
 
   const handleUpdateInquiryStatus = async (id: string, newStatus: 'unread' | 'read') => {
-    fetch(`${VITE_RAILWAY_API_URL}/admin/inquiries/${id}/status`, {
+    fetch(`${VITE_RENDER_API_URL}/admin/inquiries/${id}/status`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -433,7 +433,7 @@ function AdminDashboard() {
   };
 
   const handleDeleteInquiry = async (id: string) => {
-    fetch(`${VITE_RAILWAY_API_URL}/admin/inquiries/${id}`, {
+    fetch(`${VITE_RENDER_API_URL}/admin/inquiries/${id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -545,7 +545,7 @@ function AdminDashboard() {
 
   const fetchLogs = () => {
     setLogs([]);
-    fetch(`${VITE_RENDER_API_URL}/admin/logs`, {
+    fetch(`${VITE_RAILWAY_API_URL}/admin/logs`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -566,7 +566,7 @@ function AdminDashboard() {
     if (activeSection === "dashboard" || activeSection === "logs") {
       const fetchStudents = async () => {
         try {
-          const results = await Promise.allSettled([
+          const [renderData, railwayData] = await Promise.all([
             fetch(`${VITE_RENDER_API_URL}/admin/students`).then(async res => {
               if (!res.ok) throw new Error(await res.text());
               return res.json();
@@ -577,36 +577,13 @@ function AdminDashboard() {
             })
           ]);
 
-          let allStudents: any[] = [];
-          let renderList: any[] = [];
-          let railwayList: any[] = [];
-          let partialFailure = false;
-
-          if (results[0].status === "fulfilled") {
-            renderList = results[0].value.students || [];
-            setRenderStudents(renderList);
-            allStudents = [...allStudents, ...renderList];
-          } else {
-            console.error("Render students fetch failed:", results[0].reason);
-            partialFailure = true;
-          }
-
-          if (results[1].status === "fulfilled") {
-            railwayList = results[1].value.students || [];
-            setRailwayStudents(railwayList);
-            allStudents = [...allStudents, ...railwayList];
-          } else {
-            console.error("Railway students fetch failed:", results[1].reason);
-            partialFailure = true;
-          }
-
-          setStudents(allStudents);
-
-          if (partialFailure) {
-            showToast("Warning: Failed to fetch students from one of the database servers.", "warning");
-          }
+          const renderList = renderData.students || [];
+          const railwayList = railwayData.students || [];
+          setRenderStudents(renderList);
+          setRailwayStudents(railwayList);
+          setStudents([...renderList, ...railwayList]);
         } catch (err: any) {
-          showToast(err.message || "Failed to load students.", "error");
+          showToast(err.message || "Failed to load dashboard students from both database APIs.", "error");
         }
       };
       fetchStudents();
@@ -615,49 +592,12 @@ function AdminDashboard() {
     if (activeSection === "dashboard" || activeSection === "clients") {
       const fetchClients = async () => {
         try {
-          const results = await Promise.allSettled([
-            fetch(`${VITE_RENDER_API_URL}/admin/dashboard`).then(async res => {
-              if (!res.ok) throw new Error(await res.text());
-              return res.json();
-            }),
-            fetch(`${VITE_RAILWAY_API_URL}/admin/dashboard`).then(async res => {
-              if (!res.ok) throw new Error(await res.text());
-              return res.json();
-            })
-          ]);
-
-          let allUsers: any[] = [];
-          let partialFailure = false;
-
-          if (results[0].status === "fulfilled") {
-            allUsers = [...allUsers, ...(results[0].value.data || [])];
-          } else {
-            console.error("Render dashboard fetch failed:", results[0].reason);
-            partialFailure = true;
-          }
-
-          if (results[1].status === "fulfilled") {
-            allUsers = [...allUsers, ...(results[1].value.data || [])];
-          } else {
-            console.error("Railway dashboard fetch failed:", results[1].reason);
-            partialFailure = true;
-          }
-
-          // Group clients by email to combine stats from even/odd servers and prevent duplicate cards
-          const clientMap = new Map<string, any>();
-          allUsers.forEach((user: any) => {
-            if (!user) return;
-            const emailKey = user.email.toLowerCase();
-            const existing = clientMap.get(emailKey);
-            if (existing) {
-              existing.students = (existing.students || 0) + (user.students || 0);
-            } else {
-              clientMap.set(emailKey, { ...user });
-            }
+          const data = await fetch(`${VITE_RENDER_API_URL}/admin/dashboard`).then(async res => {
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
           });
-          const uniqueClients = Array.from(clientMap.values());
 
-          const clients: Client[] = uniqueClients.map(
+          const clients: Client[] = (data.data || []).map(
             (user: any, index: number) => ({
               id: index + 1,
               _id: user._id,
@@ -673,12 +613,8 @@ function AdminDashboard() {
           );
 
           updateClientLists(clients);
-
-          if (partialFailure) {
-            showToast("Warning: Failed to fetch client list from one of the database servers.", "warning");
-          }
         } catch (err: any) {
-          showToast(err.message || "Failed to load clients.", "error");
+          showToast(err.message || "Failed to load clients from Render API.", "error");
         }
       };
       fetchClients();

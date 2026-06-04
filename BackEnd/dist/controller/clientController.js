@@ -38,7 +38,7 @@ const addStudent = async (req, res) => {
         if (!normalizedClientEmail || !name || !normalizedEmail || !rollNo || semester === undefined || sgpa === undefined)
             return res.status(400).json({
                 success: false,
-                message: "Client id, name, email, roll no, semester are required !",
+                message: "Client email, name, email, roll no, semester are required !",
             });
         const student = await (0, clientService_1.AddStudent)(normalizedClientEmail, name, normalizedEmail, rollNo, semester, sgpa);
         await (0, logService_1.LogActivity)(actorEmail.toLowerCase(), actorRole, "Student Created", "student", `Added student: ${name} (${rollNo}, Sem: ${semester}, SGPA: ${sgpa})`, "success");
@@ -50,9 +50,7 @@ const addStudent = async (req, res) => {
     }
     catch (err) {
         await (0, logService_1.LogActivity)(actorEmail.toLowerCase(), actorRole, "Student Creation Failed", "student", `Failed to add student ${name || ""}: ${err.message}`, "failure");
-        const client = await (0, clientService_1.findClientByIdentifier)(normalizedClientEmail);
-        const clientId = client ? client._id : undefined;
-        const { isDuplicate, message } = await (0, dbErrorHandler_1.checkAndLogDuplicate)(err, Student_1.default, { email: normalizedEmail, rollNo, clientId });
+        const { isDuplicate, message } = await (0, dbErrorHandler_1.checkAndLogDuplicate)(err, Student_1.default, { email: normalizedEmail, rollNo, clientEmail: normalizedClientEmail });
         if (isDuplicate) {
             return res.status(409).json({
                 success: false,
@@ -78,7 +76,7 @@ const updateStudent = async (req, res) => {
         if (!normalizedOldEmail || !normalizedClientEmail || !name || !normalizedEmail || !rollNo || !semester)
             return res.status(400).json({
                 success: false,
-                message: "Client id, name, email, roll no, semester are required !",
+                message: "Client email, name, email, roll no, semester are required !",
             });
         const student = await (0, clientService_1.UpdateStudent)(normalizedOldEmail, normalizedClientEmail, name, normalizedEmail, rollNo, semester, sgpa);
         await (0, logService_1.LogActivity)(actorEmail.toLowerCase(), actorRole, "Student Updated", "student", `Updated student: ${name} (${rollNo}, Sem: ${semester}, SGPA: ${sgpa})`, "success");
@@ -90,12 +88,10 @@ const updateStudent = async (req, res) => {
     }
     catch (err) {
         await (0, logService_1.LogActivity)(actorEmail.toLowerCase(), actorRole, "Student Update Failed", "student", `Failed to update student ${oldEmail}: ${err.message}`, "failure");
-        const client = await (0, clientService_1.findClientByIdentifier)(normalizedClientEmail);
-        const clientId = client ? client._id : undefined;
         // Find student by oldEmail to check self-update
-        const existingStudentForId = await Student_1.default.findOne({ email: normalizedOldEmail, clientId }).lean();
+        const existingStudentForId = await Student_1.default.findOne({ email: normalizedOldEmail, clientEmail: normalizedClientEmail }).lean();
         const student_id = existingStudentForId ? existingStudentForId._id : undefined;
-        const { isDuplicate, message } = await (0, dbErrorHandler_1.checkAndLogDuplicate)(err, Student_1.default, { email: normalizedEmail, rollNo, clientId, _id: student_id });
+        const { isDuplicate, message } = await (0, dbErrorHandler_1.checkAndLogDuplicate)(err, Student_1.default, { email: normalizedEmail, rollNo, clientEmail: normalizedClientEmail, _id: student_id });
         if (isDuplicate) {
             return res.status(409).json({
                 success: false,
@@ -202,7 +198,7 @@ const updateProfile = async (req, res) => {
         if (!normalizedClientEmail || !institutionName || !normalizedEmail) {
             return res.status(400).json({
                 success: false,
-                message: "Client id, institution name, and email are required !",
+                message: "Client email, institution name, and email are required !",
             });
         }
         const client = await (0, clientService_1.UpdateProfile)(normalizedClientEmail, institutionName, normalizedEmail, password);

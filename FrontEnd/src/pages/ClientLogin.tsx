@@ -71,7 +71,6 @@ function ClientLogin() {
     }).then((data) => {
       setData(data);
       showToast("Login successful! Redirecting...", "success");
-      localStorage.setItem("clientId",data.user._id);
       localStorage.setItem("userEmail", data.user.email);
       localStorage.setItem("userRole", data.user.role);
       navigate("/client/dashboard");

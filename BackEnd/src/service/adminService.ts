@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import Admin from "../models/Admin";
 import Client from "../models/Client";
 import Student from "../models/Student";
@@ -33,10 +32,7 @@ export const AddClient = async (
     if (portalExpiryDate.getTime() < startOfToday.getTime())
         throw new Error("Date was Expired !");
 
-    const clientId = new mongoose.Types.ObjectId();
-
     const client = await Client.create({
-        _id: clientId,
         email: normalizedEmail,
         password,
         role: "client",
@@ -112,19 +108,18 @@ export const DeleteClient = async (email: string) => {
     const existingClient = await Client.findOne({ email: normalizedEmail });
     if (!existingClient)
         throw new Error("Client not found !");
-    await Client.deleteOne({ email: normalizedEmail });
-    await Student.deleteMany({ clientId: existingClient._id });
-
-    // Propagate student deletion to Railway
-    try {
-        const railwayUrl = process.env.RAILWAY_API_URL || "http://localhost:3000";
-        await fetch(`${railwayUrl}/client/internal/delete-students/${existingClient._id}`, {
+    const railwayUrl = process.env.RAILWAY_API_URL || "http://localhost:3000";
+    await Promise.all([
+        Client.deleteOne({ email: normalizedEmail }),
+        Student.deleteMany({ clientEmail: normalizedEmail }),
+        fetch(`${railwayUrl}/client/internal/delete-students/${encodeURIComponent(normalizedEmail)}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" }
-        });
-    } catch (err) {
-        console.error("Failed to propagate student deletion to Railway:", err);
-    }
+        }).catch((err) => {
+            console.error("Failed to propagate student deletion to Railway:", err);
+            return null;
+        })
+    ]);
 
     const { password: _password, ...clientDto } = existingClient.toObject();
     return {

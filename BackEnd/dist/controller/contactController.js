@@ -18,6 +18,9 @@ const transporter = nodemailer_1.default.createTransport({
 const submitInquiry = async (req, res) => {
     const { fullName, institutionName, email, phone, subject, message } = req.body;
     try {
+        if (process.env.SERVER_TYPE !== "render") {
+            return res.status(400).json({ success: false, message: "Contact messages must be submitted to the Render API." });
+        }
         // 1. Validation checks
         if (!fullName || !institutionName || !email || !phone || !subject || !message) {
             return res.status(400).json({
@@ -46,7 +49,7 @@ const submitInquiry = async (req, res) => {
                 message: "Message must be at least 10 characters long!",
             });
         }
-        // 2. Save inquiry to MongoDB
+        // 2. Save contact message to the Render-owned datastore
         const inquiry = new Inquiry_1.default({
             fullName: fullName.trim(),
             institutionName: institutionName.trim(),
@@ -74,6 +77,9 @@ exports.submitInquiry = submitInquiry;
 const submitQuotationRequest = async (req, res) => {
     const { institutionName, contactPerson, email, phone, studentCount, accessDurationDays, expectedReleaseDate, otpRequired, marksMemoRequired, } = req.body;
     try {
+        if (process.env.SERVER_TYPE !== "railway") {
+            return res.status(400).json({ success: false, message: "Quotation requests must be submitted to the Railway API." });
+        }
         // 1. Validation checks
         if (!institutionName || !contactPerson || !email || !phone || studentCount === undefined || accessDurationDays === undefined || !expectedReleaseDate) {
             return res.status(400).json({
