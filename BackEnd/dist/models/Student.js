@@ -73,4 +73,5 @@ const studentSchema = new mongoose_1.Schema({
         type: Date
     }
 });
+studentSchema.index({ clientEmail: 1, rollNo: 1 }, { unique: true });
 exports.default = mongoose_1.default.model("Student", studentSchema);
