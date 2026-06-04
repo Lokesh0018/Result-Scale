@@ -31,8 +31,8 @@ const addClient = async (req, res) => {
                 success: false,
                 message: "Institution name, email, password, portal expiry date are required !",
             });
-        const client = await (0, adminService_1.AddClient)(institutionName, email, password, new Date(portalExpiryDate), institutionType, logoUrl, isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : true);
-        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Created", "client", `Created client institution: ${institutionName} (${email})`, "success");
+        const client = await (0, adminService_1.AddClient)(institutionName, email.toLowerCase(), password, new Date(portalExpiryDate), institutionType, logoUrl, isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : true);
+        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Created", "client", `Created client institution: ${institutionName} (${email.toLowerCase()})`, "success");
         return res.status(201).json({
             success: true,
             message: "Client Added Successfully",
@@ -41,12 +41,16 @@ const addClient = async (req, res) => {
     }
     catch (err) {
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Creation Failed", "client", `Failed to create client ${email || ""}: ${err.message}`, "failure");
-        if (err.message.includes("Already Exists"))
+        const isDuplicate = err.message.includes("Already Exists") ||
+            err.code === 11000 ||
+            err.message.toLowerCase().includes("duplicate") ||
+            err.message.toLowerCase().includes("unique index");
+        if (isDuplicate)
             return res.status(409).json({
                 success: false,
-                message: err.message
+                message: `Already Exists with Email ${email.toLowerCase()}`
             });
-        if (err.message === "Date was Expired !")
+        if (err.message === "Date was Expired !" || err.message === "Invalid portal expiry date !")
             return res.status(400).json({
                 success: false,
                 message: err.message
@@ -69,8 +73,8 @@ const updateClient = async (req, res) => {
                 success: false,
                 message: "Institution name, email, password, portal expiry date are required !",
             });
-        const client = await (0, adminService_1.UpdateClient)(institutionName, oldEmail, email, password, new Date(portalExpiryDate), institutionType, logoUrl, isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : undefined);
-        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Updated", "client", `Updated client institution: ${institutionName} (${email})`, "success");
+        const client = await (0, adminService_1.UpdateClient)(institutionName, oldEmail.toLowerCase(), email.toLowerCase(), password, new Date(portalExpiryDate), institutionType, logoUrl, isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : undefined);
+        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Updated", "client", `Updated client institution: ${institutionName} (${email.toLowerCase()})`, "success");
         return res.status(200).json({
             success: true,
             message: "Client Updated Successfully",
@@ -79,17 +83,21 @@ const updateClient = async (req, res) => {
     }
     catch (err) {
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Update Failed", "client", `Failed to update client ${oldEmail}: ${err.message}`, "failure");
-        if (err.message.includes("Already Exists"))
+        const isDuplicate = err.message.includes("Already Exists") ||
+            err.code === 11000 ||
+            err.message.toLowerCase().includes("duplicate") ||
+            err.message.toLowerCase().includes("unique index");
+        if (isDuplicate)
             return res.status(409).json({
                 success: false,
-                message: err.message
+                message: `Already Exists with Email ${email.toLowerCase()}`
             });
         if (err.message === "Client not found !")
             return res.status(404).json({
                 success: false,
                 message: err.message
             });
-        if (err.message === "Date was Expired !")
+        if (err.message === "Date was Expired !" || err.message === "Invalid portal expiry date !")
             return res.status(400).json({
                 success: false,
                 message: err.message
@@ -106,8 +114,8 @@ const deleteClient = async (req, res) => {
     const actorEmail = "admin@resultscale.com";
     const actorRole = "admin";
     try {
-        const client = await (0, adminService_1.DeleteClient)(email);
-        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Deleted", "client", `Deleted client and all enrolled student data: ${email}`, "success");
+        const client = await (0, adminService_1.DeleteClient)(email.toLowerCase());
+        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Deleted", "client", `Deleted client and all enrolled student data: ${email.toLowerCase()}`, "success");
         return res.status(200).json({
             success: true,
             message: "Client Deleted Successfully",
@@ -152,8 +160,8 @@ const updatePassword = async (req, res) => {
     const actorEmail = "admin@resultscale.com";
     const actorRole = "admin";
     try {
-        const admin = await (0, adminService_1.UpdatePassword)(email, password);
-        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Password Updated", "security", `Admin password updated for: ${email}`, "success");
+        const admin = await (0, adminService_1.UpdatePassword)(email.toLowerCase(), password);
+        await (0, logService_1.LogActivity)(actorEmail, actorRole, "Password Updated", "security", `Admin password updated for: ${email.toLowerCase()}`, "success");
         return res.status(200).json({
             message: "Password Changed Successfully",
             admin

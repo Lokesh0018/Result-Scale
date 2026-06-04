@@ -8,8 +8,16 @@ export const GetDashboard = async (clientId: string) => {
   }).lean();
   const client = await Client.findById(clientId).lean();
   return {
-    students,
-    client
+    client,
+    stats: {
+      totalStudents,
+      averageSgpa: stats.averageSgpa || 0,
+      passingRate: totalStudents > 0 ? Math.floor((stats.passingCount / totalStudents) * 100) : 0,
+      excellenceRate: totalStudents > 0 ? Math.floor((stats.excellenceCount / totalStudents) * 100) : 0
+    },
+    distribution,
+    trends,
+    recentStudents
   };
 };
 
@@ -23,7 +31,7 @@ export const AddStudent = async (clientId: string, name: string, email: string, 
     const student = await Student.create({
         clientId,
         name,
-        email,
+        email: normalizedEmail,
         rollNo,
         institutionName:client.institutionName,
         semester,
@@ -39,14 +47,14 @@ export const UpdateStudent = async (oldEmail: string, clientId: string, name: st
     if (!student)
         throw new Error("Student not found !");
 
-    if (oldEmail !== email) {
-        const existingStudent = await Student.findOne({ email });
+    if (normalizedOldEmail !== normalizedEmail) {
+        const existingStudent = await Student.findOne({ email: normalizedEmail });
         if (existingStudent)
-            throw new Error(`Already Exists with Email ${email}`);
+            throw new Error(`Already Exists with Email ${normalizedEmail}`);
     }
 
     student.name = name;
-    student.email = email;
+    student.email = normalizedEmail;
     student.rollNo = rollNo;
     student.semester = semester;
     student.sgpa = sgpa;
@@ -76,7 +84,8 @@ export const GetStudents = async (clientId: string) => {
 }
 
 export const UpdatePassword = async (email: string, password: string) => {
-    const client = await Client.findOne({ email });
+    const normalizedEmail = email.toLowerCase();
+    const client = await Client.findOne({ email: normalizedEmail });
     if (!client)
         throw new Error("Client not found !");
     client.password = password;
@@ -90,14 +99,15 @@ export const UpdateProfile = async (clientId: string, institutionName: string, e
     if (!client)
         throw new Error("Client not found !");
     
-    if (client.email !== email) {
-        const existingClient = await Client.findOne({ email });
+    const normalizedEmail = email.toLowerCase();
+    if (client.email.toLowerCase() !== normalizedEmail) {
+        const existingClient = await Client.findOne({ email: normalizedEmail });
         if (existingClient)
-            throw new Error(`Already Exists with Email ${email}`);
+            throw new Error(`Already Exists with Email ${normalizedEmail}`);
     }
 
     client.institutionName = institutionName;
-    client.email = email;
+    client.email = normalizedEmail;
     if (password) {
         client.password = password;
     }
