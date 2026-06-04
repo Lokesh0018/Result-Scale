@@ -48,4 +48,6 @@ const studentSchema = new Schema<IStudent>({
     }
 })
 
+studentSchema.index({ clientEmail: 1, rollNo: 1 }, { unique: true });
+
 export default mongoose.model<IStudent>("Student",studentSchema);
