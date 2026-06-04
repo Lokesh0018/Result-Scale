@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "dist/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npm run build && node --test dist/__tests__/*.js",
     "dev": "cross-env NODE_ENV=development ts-node-dev --respawn --transpile-only src/server.ts",
     "dev:railway": "cross-env SERVER_TYPE=railway NODE_ENV=development ts-node-dev --respawn --transpile-only src/server.ts",
     "dev:render": "cross-env SERVER_TYPE=render NODE_ENV=development ts-node-dev --respawn --transpile-only src/server.ts",

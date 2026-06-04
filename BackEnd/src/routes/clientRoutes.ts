@@ -1,7 +1,7 @@
 import express from "express";
 import { login } from "../controller/loginController";
-import { getDashboard, addStudent, updateStudent, deleteStudent, getStudents, updatePassword, updateProfile } from "../controller/clientController";
-import { findClientByIdentifier } from "../service/clientService";
+import { getDashboard, addStudent, bulkUploadStudents, updateStudent, deleteStudent, getStudents, updatePassword, updateProfile } from "../controller/clientController";
+import { findClientByIdentifier, StudentExists } from "../service/clientService";
 import { verifyLogin } from "../service/loginService";
 import Client from "../models/Client";
 import Student from "../models/Student";
@@ -11,6 +11,7 @@ router.post("/login", login);
 
 router.get("/dashboard/:clientEmail", getDashboard);
 router.post("/students", addStudent);
+router.post("/students/bulk", bulkUploadStudents);
 router.put("/students/:email", updateStudent);
 router.delete("/students/:email", deleteStudent);
 
@@ -27,6 +28,28 @@ router.get("/internal/lookup/:identifier", async (req: express.Request, res: exp
     return res.status(200).json({ success: true, client });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.get("/internal/student-exists", async (req: express.Request, res: express.Response) => {
+  try {
+    const clientEmail = req.query.clientEmail as string;
+    const email = req.query.email as string | undefined;
+    const rollNo = req.query.rollNo as string | undefined;
+
+    if (!clientEmail) {
+      return res.status(400).json({ success: false, message: "clientEmail is required", error: {} });
+    }
+
+    const exists = await StudentExists(clientEmail, email, rollNo);
+    return res.status(200).json({
+      success: true,
+      message: "Student existence checked successfully",
+      data: { exists },
+      exists,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message, error: { message: err.message } });
   }
 });
 

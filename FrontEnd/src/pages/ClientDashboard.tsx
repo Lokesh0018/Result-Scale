@@ -541,41 +541,35 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
       const csvText = await file.text();
       const studentsFromCsv = parseCsvRows(csvText);
 
-      const uploadResponses = await Promise.allSettled(
-        studentsFromCsv.map((student) => {
-          const apiUrl = convertLastChar(student.rollNo) % 2 === 1
-          ? VITE_RENDER_API_URL
-          : VITE_RAILWAY_API_URL;
-          return fetch(`${apiUrl}/client/students`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(student),
-          }).then(async (res) => {
-            const data = await res.json();
-            if (!res.ok) {
-              throw new Error(data.message || `Failed to upload ${student.email}`);
-            }
-            return data.student as Student;
-          });
-        })
-      );
+      const res = await fetch(`${VITE_RENDER_API_URL}/client/students/bulk`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Email": localStorage.getItem("userEmail") || clientEmail,
+          "X-User-Role": "client",
+        },
+        body: JSON.stringify({
+          clientEmail: localStorage.getItem("userEmail") || clientEmail,
+          students: studentsFromCsv,
+        }),
+      });
+      const data = await res.json();
 
-      const successfulUploads = uploadResponses
-        .filter((result): result is PromiseFulfilledResult<Student> => result.status === 'fulfilled')
-        .map((result) => result.value);
+      if (!res.ok && res.status !== 207) {
+        throw new Error(data.message || "Failed to upload CSV file.");
+      }
 
-      if (successfulUploads.length > 0) {
+      const summary = data.summary || data.data?.summary;
+
+      if (summary?.successfullyUploaded > 0) {
         setRefreshTrigger(prev => prev + 1);
       }
 
-      const failedUploads = uploadResponses.filter((result) => result.status === 'rejected');
-      if (failedUploads.length === 0) {
-        showToast(`Uploaded ${successfulUploads.length} students successfully.`, 'success');
+      if (!summary || summary.failedUploads === 0) {
+        showToast(`Uploaded ${summary?.successfullyUploaded ?? studentsFromCsv.length} students successfully.`, 'success');
       } else {
         showToast(
-          `Uploaded ${successfulUploads.length} student(s), failed ${failedUploads.length}.`,
+          `Uploaded ${summary.successfullyUploaded} student(s), failed ${summary.failedUploads}. Firestore: ${summary.firestoreCount}, MongoDB: ${summary.mongoDBCount}.`,
           'error'
         );
       }

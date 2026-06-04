@@ -1,9 +1,87 @@
 import express, { Request, Response } from "express"
-import { GetDashboard, AddStudent, UpdateStudent, DeleteStudent, GetStudents, UpdatePassword, UpdateProfile, findClientByIdentifier } from "../service/clientService"
+import { GetDashboard, AddStudent, UpdateStudent, DeleteStudent, GetStudents, UpdatePassword, UpdateProfile, findClientByIdentifier, StudentExists } from "../service/clientService"
 import { LogActivity } from "../service/logService"
 import Client from "../models/Client"
 import Student from "../models/Student"
 import { checkAndLogDuplicate } from "../utils/dbErrorHandler"
+import { env, ServerType } from "../config/env"
+import { expectedServerForRollNo, isValidRollNo } from "../utils/rollNo"
+import { fetchJsonWithRetry } from "../utils/http"
+import { sendFailure, sendSuccess } from "../utils/apiResponse"
+import { buildStudentUploadPlan } from "../utils/studentUploadPlan"
+
+type StudentUploadPayload = {
+    clientEmail: string;
+    name: string;
+    email: string;
+    rollNo: string;
+    semester: number;
+    sgpa: number;
+};
+
+const apiUrlForServer = (server: ServerType) => server === "render" ? env.renderApiUrl : env.railwayApiUrl;
+
+const validateStudentPayload = (payload: Partial<StudentUploadPayload>) => {
+    if (!payload.clientEmail || !payload.name || !payload.email || !payload.rollNo || payload.semester === undefined || payload.sgpa === undefined) {
+        throw new Error("Client email, name, email, roll no, semester and SGPA are required !");
+    }
+
+    if (!isValidRollNo(payload.rollNo)) {
+        throw new Error("Roll number format is invalid");
+    }
+};
+
+const checkPeerStudentDuplicate = async (payload: StudentUploadPayload) => {
+    const peerServer: ServerType = env.serverType === "render" ? "railway" : "render";
+    const peerUrl = apiUrlForServer(peerServer);
+    const query = new URLSearchParams({
+        clientEmail: payload.clientEmail.toLowerCase(),
+        email: payload.email.toLowerCase(),
+        rollNo: payload.rollNo,
+    });
+
+    const data: any = await fetchJsonWithRetry(`${peerUrl}/client/internal/student-exists?${query.toString()}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    });
+
+    if (data.exists || data.data?.exists) {
+        throw new Error("Student already exists in another database API");
+    }
+};
+
+const createStudentOnCorrectServer = async (payload: StudentUploadPayload, actorEmail: string, actorRole: string) => {
+    validateStudentPayload(payload);
+    const normalizedPayload = {
+        ...payload,
+        clientEmail: payload.clientEmail.toLowerCase(),
+        email: payload.email.toLowerCase(),
+    };
+    const expectedServer = expectedServerForRollNo(normalizedPayload.rollNo);
+
+    if (expectedServer !== env.serverType) {
+        const data: any = await fetchJsonWithRetry(`${apiUrlForServer(expectedServer)}/client/students`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-User-Email": actorEmail,
+                "X-User-Role": actorRole,
+            },
+            body: JSON.stringify(normalizedPayload),
+        });
+        return data.student || data.data?.student;
+    }
+
+    await checkPeerStudentDuplicate(normalizedPayload);
+    return await AddStudent(
+        normalizedPayload.clientEmail,
+        normalizedPayload.name,
+        normalizedPayload.email,
+        normalizedPayload.rollNo,
+        normalizedPayload.semester,
+        normalizedPayload.sgpa
+    );
+};
 
 export const getDashboard = async (req: Request, res: Response) => {
     try {
@@ -31,36 +109,89 @@ export const addStudent = async (req: Request, res: Response) => {
     const actorEmail = req.headers["x-user-email"] as string || normalizedClientEmail;
     const actorRole = req.headers["x-user-role"] as string || "client";
     try {
-        if (!normalizedClientEmail || !name || !normalizedEmail || !rollNo || semester === undefined || sgpa === undefined)
-            return res.status(400).json({
-                success: false,
-                message: "Client email, name, email, roll no, semester are required !",
-            });
-        const student = await AddStudent(normalizedClientEmail, name, normalizedEmail, rollNo, semester, sgpa);
+        const student = await createStudentOnCorrectServer({
+            clientEmail: normalizedClientEmail,
+            name,
+            email: normalizedEmail,
+            rollNo,
+            semester,
+            sgpa
+        }, actorEmail.toLowerCase(), actorRole);
         await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Created", "student", `Added student: ${name} (${rollNo}, Sem: ${semester}, SGPA: ${sgpa})`, "success");
-        return res.status(201).json({
-            success: true,
-            message: "Student Added Successfully",
-            student
-        });
+        return sendSuccess(res, 201, "Student Added Successfully", { student });
     }
     catch (err: any) {
         await LogActivity(actorEmail.toLowerCase(), actorRole, "Student Creation Failed", "student", `Failed to add student ${name || ""}: ${err.message}`, "failure");
         
         const { isDuplicate, message } = await checkAndLogDuplicate(err, Student, { email: normalizedEmail, rollNo, clientEmail: normalizedClientEmail });
         if (isDuplicate) {
-            return res.status(409).json({
-                success: false,
-                message
-            });
+            return sendFailure(res, 409, message);
         }
 
-        return res.status(500).json({
-            success: false,
-            message: err.message
-        });
+        const status = err.message?.includes("required") || err.message?.includes("invalid") ? 400 : 500;
+        return sendFailure(res, status, err.message, { message: err.message });
     }
 }
+
+export const bulkUploadStudents = async (req: Request, res: Response) => {
+    const records = Array.isArray(req.body?.students) ? req.body.students : [];
+    const actorEmail = req.headers["x-user-email"] as string || req.body?.clientEmail || "unknown_client";
+    const actorRole = req.headers["x-user-role"] as string || "client";
+
+    if (records.length === 0) {
+        return sendFailure(res, 400, "students must be a non-empty array");
+    }
+
+    const summary = {
+        totalRecords: records.length,
+        successfullyUploaded: 0,
+        failedUploads: 0,
+        firestoreCount: 0,
+        mongoDBCount: 0,
+        failures: [] as Array<{ index: number; rollNo?: string; email?: string; message: string }>,
+    };
+    const uploadedStudents = [];
+
+    for (const { index, record, target } of buildStudentUploadPlan(records)) {
+        try {
+            const payload: StudentUploadPayload = {
+                clientEmail: (record.clientEmail || req.body.clientEmail || "").toLowerCase(),
+                name: record.name,
+                email: (record.email || "").toLowerCase(),
+                rollNo: record.rollNo,
+                semester: Number(record.semester),
+                sgpa: Number(record.sgpa),
+            };
+            const student = await createStudentOnCorrectServer(payload, actorEmail.toLowerCase(), actorRole);
+            uploadedStudents.push(student);
+            summary.successfullyUploaded += 1;
+            if (target === "render") summary.firestoreCount += 1;
+            else summary.mongoDBCount += 1;
+        } catch (err: any) {
+            summary.failedUploads += 1;
+            summary.failures.push({
+                index,
+                rollNo: record.rollNo,
+                email: record.email,
+                message: err.message || "Upload failed",
+            });
+        }
+    }
+
+    await LogActivity(
+        actorEmail.toLowerCase(),
+        actorRole,
+        "Student Upload",
+        "student",
+        `Bulk upload completed. Total: ${summary.totalRecords}, Success: ${summary.successfullyUploaded}, Failed: ${summary.failedUploads}, Firestore: ${summary.firestoreCount}, MongoDB: ${summary.mongoDBCount}`,
+        summary.failedUploads === 0 ? "success" : "failure"
+    );
+
+    return sendSuccess(res, summary.failedUploads === 0 ? 201 : 207, "Student upload completed", {
+        summary,
+        students: uploadedStudents,
+    });
+};
 
 export const updateStudent = async (req: Request, res: Response) => {
     const oldEmail = req.params.email as string;

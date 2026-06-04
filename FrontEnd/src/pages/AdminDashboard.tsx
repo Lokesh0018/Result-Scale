@@ -487,8 +487,12 @@ function AdminDashboard() {
     }
 
     const expiryDate = new Date(formData.portalExpiryDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    if (expiryDate.getTime() < new Date().getTime()) {
+    if (!formData.portalExpiryDate || isNaN(expiryDate.getTime())) {
+      newErrors.portalExpiryDate = "Portal expiry date is required";
+    } else if (expiryDate.getTime() < today.getTime()) {
       newErrors.portalExpiryDate = "Date is Invalid";
     }
 

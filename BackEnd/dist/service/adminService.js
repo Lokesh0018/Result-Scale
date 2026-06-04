@@ -9,6 +9,7 @@ const Client_1 = __importDefault(require("../models/Client"));
 const Student_1 = __importDefault(require("../models/Student"));
 const Inquiry_1 = __importDefault(require("../models/Inquiry"));
 const QuotationRequest_1 = __importDefault(require("../models/QuotationRequest"));
+const env_1 = require("../config/env");
 const GetDashboard = async () => {
     return await Client_1.default.find().lean();
 };
@@ -89,11 +90,10 @@ const DeleteClient = async (email) => {
     // Delete Client from Firestore (local on Render)
     await Client_1.default.deleteOne({ email: normalizedEmail });
     // Delete odd students locally on Render and even students on Railway using Promise.all
-    const railwayUrl = process.env.RAILWAY_API_URL || "http://localhost:3000";
     try {
         await Promise.all([
             Student_1.default.deleteMany({ clientEmail: normalizedEmail }),
-            fetch(`${railwayUrl}/client/internal/delete-students/${normalizedEmail}`, {
+            fetch(`${env_1.env.railwayApiUrl}/client/internal/delete-students/${normalizedEmail}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" }
             }).then(async (res) => {

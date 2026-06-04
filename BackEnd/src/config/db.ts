@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Client from "../models/Client";
 import Student from "../models/Student";
+import ActivityLog from "../models/ActivityLog";
+import { env } from "./env";
 
 const dropUnexpectedUniqueIndexes = async () => {
     const uniqueIndexesToKeep: Record<string, Set<string>> = {
@@ -31,13 +33,20 @@ const dropUnexpectedUniqueIndexes = async () => {
 
 const connectDB = async () => {
     try {
-        await mongoose.connect(process.env.MONGO_URI as string);
+        if (!env.mongoUri) {
+            throw new Error("MONGO_URI is not configured");
+        }
+
+        await mongoose.connect(env.mongoUri);
         await dropUnexpectedUniqueIndexes();
-        await Promise.all([Client.syncIndexes(), Student.syncIndexes()]);
+        await Promise.all([Client.syncIndexes(), Student.syncIndexes(), ActivityLog.syncIndexes()]);
 
         console.log("MongoDB Connected");
     } catch (error) {
         console.error("MongoDB connection error:", error);
+        if (process.env.NODE_ENV === "production") {
+            process.exit(1);
+        }
     }
 };
 

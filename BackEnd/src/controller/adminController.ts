@@ -7,6 +7,7 @@ import {
 import { GetActivityLogs, LogActivity } from "../service/logService";
 import { checkAndLogDuplicate } from "../utils/dbErrorHandler";
 import Client from "../models/Client";
+import { validateClientInput } from "../utils/clientValidation";
 
 export const getDashboard = async (req: Request, res: Response) => {
     try {
@@ -31,11 +32,7 @@ export const addClient = async (req: Request, res: Response) => {
     const actorEmail = req.headers["x-user-email"] as string || "admin@resultscale.com";
     const actorRole = req.headers["x-user-role"] as string || "admin";
     try {
-        if (!institutionName || !email || !password || !portalExpiryDate)
-            return res.status(400).json({
-                success: false,
-                message: "Institution name, email, password, portal expiry date are required !",
-            });
+        validateClientInput({ institutionName, email, password, portalExpiryDate });
         const client = await AddClient(
             institutionName,
             email.toLowerCase(),
@@ -81,11 +78,12 @@ export const updateClient = async (req: Request, res: Response) => {
     const actorEmail = req.headers["x-user-email"] as string || "admin@resultscale.com";
     const actorRole = req.headers["x-user-role"] as string || "admin";
     try {
-        if (!institutionName || !oldEmail || !email || !password || !portalExpiryDate)
+        if (!oldEmail)
             return res.status(400).json({
                 success: false,
-                message: "Institution name, email, password, portal expiry date are required !",
+                message: "Client email is required !",
             });
+        validateClientInput({ institutionName, email, password, portalExpiryDate });
         const client = await UpdateClient(
             institutionName,
             oldEmail.toLowerCase(),

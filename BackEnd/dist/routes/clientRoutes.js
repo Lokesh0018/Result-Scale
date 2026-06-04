@@ -15,6 +15,7 @@ exports.router = express_1.default.Router();
 exports.router.post("/login", loginController_1.login);
 exports.router.get("/dashboard/:clientEmail", clientController_1.getDashboard);
 exports.router.post("/students", clientController_1.addStudent);
+exports.router.post("/students/bulk", clientController_1.bulkUploadStudents);
 exports.router.put("/students/:email", clientController_1.updateStudent);
 exports.router.delete("/students/:email", clientController_1.deleteStudent);
 exports.router.get("/students/:clientEmail", clientController_1.getStudents);
@@ -30,6 +31,26 @@ exports.router.get("/internal/lookup/:identifier", async (req, res) => {
     }
     catch (err) {
         return res.status(500).json({ success: false, message: err.message });
+    }
+});
+exports.router.get("/internal/student-exists", async (req, res) => {
+    try {
+        const clientEmail = req.query.clientEmail;
+        const email = req.query.email;
+        const rollNo = req.query.rollNo;
+        if (!clientEmail) {
+            return res.status(400).json({ success: false, message: "clientEmail is required", error: {} });
+        }
+        const exists = await (0, clientService_1.StudentExists)(clientEmail, email, rollNo);
+        return res.status(200).json({
+            success: true,
+            message: "Student existence checked successfully",
+            data: { exists },
+            exists,
+        });
+    }
+    catch (err) {
+        return res.status(500).json({ success: false, message: err.message, error: { message: err.message } });
     }
 });
 exports.router.post("/internal/verify-login", async (req, res) => {

@@ -1,18 +1,17 @@
 
 import Admin from "../models/Admin";
 import Client from "../models/Client";
-import Student from "../models/Student";
 import { Roles } from "../types/types";
+import { env } from "../config/env";
 
 export const verifyLogin = async (email: string, password: string, role: Roles) => {
     const normalizedEmail = email.toLowerCase();
     let user;
-    if (role === "admin") 
+    if (role === "admin") {
         user = await Admin.findOne({ email: normalizedEmail });
-    if(role === "client") {
-        if (process.env.SERVER_TYPE === "railway") {
-            const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
-            const response = await fetch(`${renderUrl}/client/internal/verify-login`, {
+    } else if(role === "client") {
+        if (env.serverType === "railway") {
+            const response = await fetch(`${env.renderApiUrl}/client/internal/verify-login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password, role })

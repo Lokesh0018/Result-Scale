@@ -6,6 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importDefault(require("mongoose"));
 const Client_1 = __importDefault(require("../models/Client"));
 const Student_1 = __importDefault(require("../models/Student"));
+const ActivityLog_1 = __importDefault(require("../models/ActivityLog"));
+const env_1 = require("./env");
 const dropUnexpectedUniqueIndexes = async () => {
     const uniqueIndexesToKeep = {
         Client: new Set(["_id_", "email_1"]),
@@ -30,13 +32,19 @@ const dropUnexpectedUniqueIndexes = async () => {
 };
 const connectDB = async () => {
     try {
-        await mongoose_1.default.connect(process.env.MONGO_URI);
+        if (!env_1.env.mongoUri) {
+            throw new Error("MONGO_URI is not configured");
+        }
+        await mongoose_1.default.connect(env_1.env.mongoUri);
         await dropUnexpectedUniqueIndexes();
-        await Promise.all([Client_1.default.syncIndexes(), Student_1.default.syncIndexes()]);
+        await Promise.all([Client_1.default.syncIndexes(), Student_1.default.syncIndexes(), ActivityLog_1.default.syncIndexes()]);
         console.log("MongoDB Connected");
     }
     catch (error) {
         console.error("MongoDB connection error:", error);
+        if (process.env.NODE_ENV === "production") {
+            process.exit(1);
+        }
     }
 };
 exports.default = connectDB;

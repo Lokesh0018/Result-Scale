@@ -17,7 +17,7 @@ export const login = async (req: Request, res: Response) => {
             });
         }
         const user = await verifyLogin(email, password, role);
-        await LogActivity(email, role, "Login Successful", "auth", `Successfully authenticated as ${role}`, "success");
+        await LogActivity(email, role, role === "admin" ? "Admin Login" : "Client Login", "auth", `Successfully authenticated as ${role}`, "success");
         return res.status(200).json({
             success: true,
             message: "Login successful",

@@ -3,6 +3,7 @@ import Client from "../models/Client";
 import Student from "../models/Student";
 import Inquiry from "../models/Inquiry";
 import QuotationRequest from "../models/QuotationRequest";
+import { env } from "../config/env";
 
 export const GetDashboard = async () => {
     return await Client.find().lean();
@@ -113,11 +114,10 @@ export const DeleteClient = async (email: string) => {
     await Client.deleteOne({ email: normalizedEmail });
 
     // Delete odd students locally on Render and even students on Railway using Promise.all
-    const railwayUrl = process.env.RAILWAY_API_URL || "http://localhost:3000";
     try {
         await Promise.all([
             Student.deleteMany({ clientEmail: normalizedEmail }),
-            fetch(`${railwayUrl}/client/internal/delete-students/${normalizedEmail}`, {
+            fetch(`${env.railwayApiUrl}/client/internal/delete-students/${normalizedEmail}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" }
             }).then(async (res) => {

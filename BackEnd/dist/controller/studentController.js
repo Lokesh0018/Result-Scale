@@ -7,6 +7,7 @@ exports.getActiveInstitutions = exports.verifyOtp = exports.login = void 0;
 const studentService_1 = require("../service/studentService");
 const logService_1 = require("../service/logService");
 const Client_1 = __importDefault(require("../models/Client"));
+const env_1 = require("../config/env");
 const login = async (req, res) => {
     const { email, rollNo, clientEmail } = req.body;
     try {
@@ -17,7 +18,7 @@ const login = async (req, res) => {
             });
         }
         const student = await (0, studentService_1.VerifyStudentLogin)(email, rollNo, clientEmail);
-        await (0, logService_1.LogActivity)(email, "student", "Login OTP Requested", "auth", `OTP sent for roll number: ${rollNo}`, "success");
+        await (0, logService_1.LogActivity)(email, "student", "OTP Request", "auth", `OTP sent for roll number: ${rollNo}`, "success");
         return res.status(200).json({
             success: true,
             message: "OTP Sent",
@@ -26,7 +27,7 @@ const login = async (req, res) => {
     }
     catch (err) {
         if (email) {
-            await (0, logService_1.LogActivity)(email, "student", "Login OTP Request Failed", "auth", `Failed login request: ${err.message}`, "failure");
+            await (0, logService_1.LogActivity)(email, "student", "OTP Request Failed", "auth", `Failed login request: ${err.message}`, "failure");
         }
         if (err.message === "Student not found!")
             return res.status(404).json({
@@ -55,7 +56,7 @@ const verifyOtp = async (req, res) => {
     const { email, otp } = req.body;
     try {
         const student = await (0, studentService_1.VerifyOtp)(email, otp);
-        await (0, logService_1.LogActivity)(email, "student", "Login Successful", "auth", "OTP verified successfully. Access granted.", "success");
+        await (0, logService_1.LogActivity)(email, "student", "Student Login", "auth", "OTP verified successfully. Access granted.", "success");
         return res.status(200).json({
             success: true,
             message: "OTP verified Successfully",
@@ -92,9 +93,8 @@ exports.verifyOtp = verifyOtp;
 const getActiveInstitutions = async (req, res) => {
     try {
         let institutions;
-        if (process.env.SERVER_TYPE === "railway") {
-            const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
-            const response = await fetch(`${renderUrl}/student/institutions`);
+        if (env_1.env.serverType === "railway") {
+            const response = await fetch(`${env_1.env.renderApiUrl}/student/institutions`);
             if (!response.ok)
                 throw new Error("Failed to fetch institutions from Render");
             const data = await response.json();

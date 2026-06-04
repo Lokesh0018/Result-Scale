@@ -8,6 +8,7 @@ const adminService_1 = require("../service/adminService");
 const logService_1 = require("../service/logService");
 const dbErrorHandler_1 = require("../utils/dbErrorHandler");
 const Client_1 = __importDefault(require("../models/Client"));
+const clientValidation_1 = require("../utils/clientValidation");
 const getDashboard = async (req, res) => {
     try {
         const data = await (0, adminService_1.GetDashboard)();
@@ -31,11 +32,7 @@ const addClient = async (req, res) => {
     const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
     const actorRole = req.headers["x-user-role"] || "admin";
     try {
-        if (!institutionName || !email || !password || !portalExpiryDate)
-            return res.status(400).json({
-                success: false,
-                message: "Institution name, email, password, portal expiry date are required !",
-            });
+        (0, clientValidation_1.validateClientInput)({ institutionName, email, password, portalExpiryDate });
         const client = await (0, adminService_1.AddClient)(institutionName, email.toLowerCase(), password, new Date(portalExpiryDate), institutionType, logoUrl, isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : true);
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Created", "client", `Created client institution: ${institutionName} (${email.toLowerCase()})`, "success");
         return res.status(201).json({
@@ -71,11 +68,12 @@ const updateClient = async (req, res) => {
     const actorEmail = req.headers["x-user-email"] || "admin@resultscale.com";
     const actorRole = req.headers["x-user-role"] || "admin";
     try {
-        if (!institutionName || !oldEmail || !email || !password || !portalExpiryDate)
+        if (!oldEmail)
             return res.status(400).json({
                 success: false,
-                message: "Institution name, email, password, portal expiry date are required !",
+                message: "Client email is required !",
             });
+        (0, clientValidation_1.validateClientInput)({ institutionName, email, password, portalExpiryDate });
         const client = await (0, adminService_1.UpdateClient)(institutionName, oldEmail.toLowerCase(), email.toLowerCase(), password, new Date(portalExpiryDate), institutionType, logoUrl, isActive !== undefined ? (typeof isActive === 'string' ? isActive === 'true' : Boolean(isActive)) : undefined);
         await (0, logService_1.LogActivity)(actorEmail, actorRole, "Client Updated", "client", `Updated client institution: ${institutionName} (${email.toLowerCase()})`, "success");
         return res.status(200).json({

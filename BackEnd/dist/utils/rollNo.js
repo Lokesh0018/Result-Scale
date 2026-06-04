@@ -1,7 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.assertRollNoBelongsToServer = exports.expectedServerForRollNo = exports.isOddRollNo = exports.getRollNoLastDigit = void 0;
+exports.assertRollNoBelongsToServer = exports.expectedServerForRollNo = exports.isOddRollNo = exports.getRollNoLastDigit = exports.isValidRollNo = void 0;
+const isValidRollNo = (rollNo) => /^[A-Za-z0-9._/-]*\d[A-Za-z0-9._/-]*$/.test(`${rollNo || ""}`.trim());
+exports.isValidRollNo = isValidRollNo;
 const getRollNoLastDigit = (rollNo) => {
+    if (!(0, exports.isValidRollNo)(rollNo)) {
+        throw new Error("Roll number format is invalid");
+    }
     const match = `${rollNo || ""}`.trim().match(/(\d)\D*$/);
     if (!match) {
         throw new Error("Roll number must contain a digit");

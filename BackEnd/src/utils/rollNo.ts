@@ -1,4 +1,9 @@
+export const isValidRollNo = (rollNo: string): boolean => /^[A-Za-z0-9._/-]*\d[A-Za-z0-9._/-]*$/.test(`${rollNo || ""}`.trim());
+
 export const getRollNoLastDigit = (rollNo: string): number => {
+  if (!isValidRollNo(rollNo)) {
+    throw new Error("Roll number format is invalid");
+  }
   const match = `${rollNo || ""}`.trim().match(/(\d)\D*$/);
   if (!match) {
     throw new Error("Roll number must contain a digit");

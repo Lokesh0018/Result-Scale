@@ -3,26 +3,32 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GetActivityLogs = exports.LogActivity = void 0;
+exports.GetActivityLogs = exports.LogActivity = exports.StoreActivityLog = void 0;
 const ActivityLog_1 = __importDefault(require("../models/ActivityLog"));
+const env_1 = require("../config/env");
+const http_1 = require("../utils/http");
+const StoreActivityLog = async (userEmail, userRole, action, category, details, status) => {
+    return await ActivityLog_1.default.create({
+        userEmail: userEmail || "unknown",
+        userRole: userRole || "unknown",
+        action,
+        category,
+        details,
+        status,
+        timestamp: new Date(),
+    });
+};
+exports.StoreActivityLog = StoreActivityLog;
 const LogActivity = async (userEmail, userRole, action, category, details, status) => {
-    // Activity logs are owned by MongoDB/Railway. Do not write them on Render.
-    if (process.env.SERVER_TYPE !== "railway") {
-        return;
-    }
-    // Skip student logs to reduce memory/disk usage
-    if (userRole === "student" || category === "student") {
-        return;
-    }
     try {
-        await ActivityLog_1.default.create({
-            userEmail,
-            userRole,
-            action,
-            category,
-            details,
-            status,
-            timestamp: new Date(),
+        if (env_1.env.serverType === "railway") {
+            await (0, exports.StoreActivityLog)(userEmail, userRole, action, category, details, status);
+            return;
+        }
+        await (0, http_1.fetchJsonWithRetry)(`${env_1.env.railwayApiUrl}/activity-logs/internal`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userEmail, userRole, action, category, details, status }),
         });
     }
     catch (err) {

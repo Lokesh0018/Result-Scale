@@ -1,6 +1,7 @@
 import Client from "../models/Client";
 import Student from "../models/Student";
 import { assertRollNoBelongsToServer } from "../utils/rollNo";
+import { env } from "../config/env";
 
 const normalizeEmail = (email: string) => email.toLowerCase();
 
@@ -9,10 +10,9 @@ export const findClientByIdentifier = async (identifier: string) => {
 
   const normalized = normalizeEmail(identifier);
 
-  if (process.env.SERVER_TYPE === "railway") {
+  if (env.serverType === "railway") {
     try {
-      const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
-      const response = await fetch(`${renderUrl}/client/internal/lookup/${encodeURIComponent(normalized)}`);
+      const response = await fetch(`${env.renderApiUrl}/client/internal/lookup/${encodeURIComponent(normalized)}`);
       if (!response.ok) return null;
       const data = await response.json();
       return data.client;
@@ -106,10 +106,9 @@ export const AddStudent = async (identifier: string, name: string, email: string
     sgpa,
   });
 
-  if (process.env.SERVER_TYPE === "railway") {
+  if (env.serverType === "railway") {
     try {
-      const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
-      await fetch(`${renderUrl}/client/internal/update-student-count/${encodeURIComponent(normalizedClientEmail)}`, {
+      await fetch(`${env.renderApiUrl}/client/internal/update-student-count/${encodeURIComponent(normalizedClientEmail)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ increment: 1 }),
@@ -172,10 +171,9 @@ export const DeleteStudent = async (email: string, identifier: string) => {
 
   await Student.deleteOne({ email: normalizedEmail, clientEmail: normalizedClientEmail });
 
-  if (process.env.SERVER_TYPE === "railway") {
+  if (env.serverType === "railway") {
     try {
-      const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
-      await fetch(`${renderUrl}/client/internal/update-student-count/${encodeURIComponent(normalizedClientEmail)}`, {
+      await fetch(`${env.renderApiUrl}/client/internal/update-student-count/${encodeURIComponent(normalizedClientEmail)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ increment: -1 }),
@@ -203,6 +201,17 @@ export const GetStudents = async (identifier: string) => {
     totalPages: 1,
     currentPage: 1,
   };
+};
+
+export const StudentExists = async (identifier: string, email?: string, rollNo?: string) => {
+  const normalizedClientEmail = normalizeEmail(identifier);
+  const filters: any[] = [];
+
+  if (email) filters.push({ email: normalizeEmail(email) });
+  if (rollNo) filters.push({ clientEmail: normalizedClientEmail, rollNo });
+  if (filters.length === 0) return false;
+
+  return Boolean(await Student.exists({ $or: filters }));
 };
 
 export const UpdatePassword = async (email: string, password: string) => {

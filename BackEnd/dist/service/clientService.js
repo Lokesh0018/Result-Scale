@@ -3,19 +3,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UpdateProfile = exports.UpdatePassword = exports.GetStudents = exports.DeleteStudent = exports.UpdateStudent = exports.AddStudent = exports.GetDashboard = exports.findClientByIdentifier = void 0;
+exports.UpdateProfile = exports.UpdatePassword = exports.StudentExists = exports.GetStudents = exports.DeleteStudent = exports.UpdateStudent = exports.AddStudent = exports.GetDashboard = exports.findClientByIdentifier = void 0;
 const Client_1 = __importDefault(require("../models/Client"));
 const Student_1 = __importDefault(require("../models/Student"));
 const rollNo_1 = require("../utils/rollNo");
+const env_1 = require("../config/env");
 const normalizeEmail = (email) => email.toLowerCase();
 const findClientByIdentifier = async (identifier) => {
     if (!identifier)
         return null;
     const normalized = normalizeEmail(identifier);
-    if (process.env.SERVER_TYPE === "railway") {
+    if (env_1.env.serverType === "railway") {
         try {
-            const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
-            const response = await fetch(`${renderUrl}/client/internal/lookup/${encodeURIComponent(normalized)}`);
+            const response = await fetch(`${env_1.env.renderApiUrl}/client/internal/lookup/${encodeURIComponent(normalized)}`);
             if (!response.ok)
                 return null;
             const data = await response.json();
@@ -106,10 +106,9 @@ const AddStudent = async (identifier, name, email, rollNo, semester, sgpa) => {
         semester,
         sgpa,
     });
-    if (process.env.SERVER_TYPE === "railway") {
+    if (env_1.env.serverType === "railway") {
         try {
-            const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
-            await fetch(`${renderUrl}/client/internal/update-student-count/${encodeURIComponent(normalizedClientEmail)}`, {
+            await fetch(`${env_1.env.renderApiUrl}/client/internal/update-student-count/${encodeURIComponent(normalizedClientEmail)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ increment: 1 }),
@@ -168,10 +167,9 @@ const DeleteStudent = async (email, identifier) => {
         throw new Error("Student not found !");
     (0, rollNo_1.assertRollNoBelongsToServer)(existingStudent.rollNo);
     await Student_1.default.deleteOne({ email: normalizedEmail, clientEmail: normalizedClientEmail });
-    if (process.env.SERVER_TYPE === "railway") {
+    if (env_1.env.serverType === "railway") {
         try {
-            const renderUrl = process.env.RENDER_API_URL || "http://localhost:3001";
-            await fetch(`${renderUrl}/client/internal/update-student-count/${encodeURIComponent(normalizedClientEmail)}`, {
+            await fetch(`${env_1.env.renderApiUrl}/client/internal/update-student-count/${encodeURIComponent(normalizedClientEmail)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ increment: -1 }),
@@ -201,6 +199,18 @@ const GetStudents = async (identifier) => {
     };
 };
 exports.GetStudents = GetStudents;
+const StudentExists = async (identifier, email, rollNo) => {
+    const normalizedClientEmail = normalizeEmail(identifier);
+    const filters = [];
+    if (email)
+        filters.push({ email: normalizeEmail(email) });
+    if (rollNo)
+        filters.push({ clientEmail: normalizedClientEmail, rollNo });
+    if (filters.length === 0)
+        return false;
+    return Boolean(await Student_1.default.exists({ $or: filters }));
+};
+exports.StudentExists = StudentExists;
 const UpdatePassword = async (email, password) => {
     const normalizedEmail = normalizeEmail(email);
     const client = await Client_1.default.findOne({ email: normalizedEmail });

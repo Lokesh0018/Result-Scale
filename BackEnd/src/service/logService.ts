@@ -1,32 +1,47 @@
 import ActivityLog from "../models/ActivityLog";
+import { env } from "../config/env";
+import { fetchJsonWithRetry } from "../utils/http";
+
+export type ActivityCategory = "auth" | "student" | "client" | "system" | "security";
+export type ActivityStatus = "success" | "failure";
+
+export const StoreActivityLog = async (
+  userEmail: string,
+  userRole: string,
+  action: string,
+  category: ActivityCategory,
+  details: string,
+  status: ActivityStatus
+) => {
+  return await ActivityLog.create({
+    userEmail: userEmail || "unknown",
+    userRole: userRole || "unknown",
+    action,
+    category,
+    details,
+    status,
+    timestamp: new Date(),
+  });
+};
 
 export const LogActivity = async (
   userEmail: string,
   userRole: string,
   action: string,
-  category: "auth" | "student" | "client" | "system" | "security",
+  category: ActivityCategory,
   details: string,
-  status: "success" | "failure"
+  status: ActivityStatus
 ) => {
-  // Activity logs are owned by MongoDB/Railway. Do not write them on Render.
-  if (process.env.SERVER_TYPE !== "railway") {
-    return;
-  }
-
-  // Skip student logs to reduce memory/disk usage
-  if (userRole === "student" || category === "student") {
-    return;
-  }
-
   try {
-    await ActivityLog.create({
-      userEmail,
-      userRole,
-      action,
-      category,
-      details,
-      status,
-      timestamp: new Date(),
+    if (env.serverType === "railway") {
+      await StoreActivityLog(userEmail, userRole, action, category, details, status);
+      return;
+    }
+
+    await fetchJsonWithRetry(`${env.railwayApiUrl}/activity-logs/internal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userEmail, userRole, action, category, details, status }),
     });
   } catch (err) {
     console.error("Failed to write activity log:", err);
