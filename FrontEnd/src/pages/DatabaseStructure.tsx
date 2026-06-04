@@ -33,7 +33,7 @@ const collections = [
     icon: 'green',
     fields: [
       { name: '_id', type: 'ObjectId' },
-      { name: 'clientEmail', type: 'String (foreign key)' },
+      { name: 'clientId', type: 'ObjectId (ref)' },
       { name: 'name', type: 'String' },
       { name: 'email', type: 'String' },
       { name: 'rollNo', type: 'String' },

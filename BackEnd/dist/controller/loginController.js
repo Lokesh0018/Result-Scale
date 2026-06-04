@@ -13,7 +13,7 @@ const login = async (req, res) => {
             });
         }
         const user = await (0, loginService_1.verifyLogin)(email, password, role);
-        await (0, logService_1.LogActivity)(email, role, role === "admin" ? "Admin Login" : "Client Login", "auth", `Successfully authenticated as ${role}`, "success");
+        await (0, logService_1.LogActivity)(email, role, "Login Successful", "auth", `Successfully authenticated as ${role}`, "success");
         return res.status(200).json({
             success: true,
             message: "Login successful",

@@ -1,30 +1,32 @@
 import express from "express";
 import { login } from "../controller/loginController";
 import {
-  getDashboard, addClient, updateClient, deleteClient, getStudents,
-  updatePassword, getActivityLogs, getInquiries, updateInquiryStatus, deleteInquiry,
-  getQuotationRequests, updateQuotationRequestStatus, deleteQuotationRequest
+    getDashboard, addClient, updateClient, deleteClient, getStudents,
+    updatePassword, getActivityLogs, getInquiries, updateInquiryStatus, deleteInquiry,
+    getQuotationRequests, updateQuotationRequestStatus, deleteQuotationRequest
 } from "../controller/adminController";
+import { requireAdmin } from "../middleware/authMiddleware";
 
 export const router = express.Router();
 
+// Public
 router.post("/login", login);
 
-router.get("/dashboard", getDashboard);
-router.post("/clients", addClient);
-router.put("/clients/:email", updateClient);
-router.delete("/clients/:email", deleteClient);
+// Protected (admin only)
+router.get("/dashboard", requireAdmin, getDashboard);
+router.post("/clients", requireAdmin, addClient);
+router.put("/clients/:email", requireAdmin, updateClient);
+router.delete("/clients/:email", requireAdmin, deleteClient);
 
-router.get("/students", getStudents);
+router.get("/students", requireAdmin, getStudents);
+router.get("/logs", requireAdmin, getActivityLogs);
 
-router.patch("/password/:email", updatePassword);
+router.patch("/password/:email", requireAdmin, updatePassword);
 
-router.get("/logs", getActivityLogs);
+router.get("/inquiries", requireAdmin, getInquiries);
+router.patch("/inquiries/:id/status", requireAdmin, updateInquiryStatus);
+router.delete("/inquiries/:id", requireAdmin, deleteInquiry);
 
-router.get("/inquiries", getInquiries);
-router.patch("/inquiries/:id/status", updateInquiryStatus);
-router.delete("/inquiries/:id", deleteInquiry);
-
-router.get("/quotation-requests", getQuotationRequests);
-router.patch("/quotation-requests/:id/status", updateQuotationRequestStatus);
-router.delete("/quotation-requests/:id", deleteQuotationRequest);
+router.get("/quotation-requests", requireAdmin, getQuotationRequests);
+router.patch("/quotation-requests/:id/status", requireAdmin, updateQuotationRequestStatus);
+router.delete("/quotation-requests/:id", requireAdmin, deleteQuotationRequest);

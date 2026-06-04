@@ -15,7 +15,7 @@ import '../styles/landing.css'
 import { useTheme } from "../components/ThemeProvider"
 import { useToast } from "../components/Toast"
 
-const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API || (import.meta as any).env.VITE_RENDER_API_URL;
+const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL;
 
 interface FormFields {
   fullName: string

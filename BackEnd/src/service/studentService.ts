@@ -1,6 +1,5 @@
 import Student from "../models/Student";
-import { findClientByIdentifier } from "./clientService";
-import { assertRollNoBelongsToServer } from "../utils/rollNo";
+import Client from "../models/Client";
 
 const sendOtp = async (email: string, otp: string) => {
     try {
@@ -49,23 +48,23 @@ const generateOtp = (): string => {
     ).toString();
 };
 
-export const VerifyStudentLogin = async (email: string, rollNo: string, clientEmail?: string) => {
-    assertRollNoBelongsToServer(rollNo);
-
-    const student = await Student.findOne({ email: email.toLowerCase(), rollNo });
+export const VerifyStudentLogin = async (email: string, rollNo: string, clientId?: string) => {
+    const student = await Student.findOne({ email });
 
     if (!student)
         throw new Error("Student not found!");
 
-    const client = await findClientByIdentifier(student.clientEmail);
-    if (!client || !client.isActive) {
-        throw new Error("Portal Access Expired !");
-    }
+    if (student.rollNo !== rollNo)
+        throw new Error("Invalid credentials");
 
-    if (clientEmail && client.email.toLowerCase() !== clientEmail.toLowerCase()) {
+    if (clientId && student.clientId.toString() !== clientId) {
         throw new Error("You do not belong to the selected institution.");
     }
 
+    const client = await Client.findById(student.clientId);
+    if (!client || !client.isActive) {
+        throw new Error("Portal Access Expired !");
+    }
     if (client && new Date(client.portalExpiryDate).getTime() < Date.now())
         throw new Error("Portal Access Expired !");
 
@@ -94,12 +93,10 @@ export const VerifyStudentLogin = async (email: string, rollNo: string, clientEm
 
 export const VerifyOtp = async (email: string, otp: string) => {
 
-    const student = await Student.findOne({ email: email.toLowerCase() });
+    const student = await Student.findOne({ email });
 
     if (!student)
         throw new Error("Student not found!");
-
-    assertRollNoBelongsToServer(student.rollNo);
 
     if (
         !student.otpExpiry ||

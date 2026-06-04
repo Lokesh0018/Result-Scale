@@ -11,8 +11,8 @@ import { useTheme } from "../components/ThemeProvider";
 import { useToast } from '../components/Toast';
 import { Student } from '../types/Types';
 
-const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API || (import.meta as any).env.VITE_RENDER_API_URL;
-const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API || (import.meta as any).env.VITE_RAILWAY_API_URL;
+const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL;
+const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API_URL;
 
 function ClientDashboard() {
   const { showToast } = useToast();
@@ -24,24 +24,7 @@ function ClientDashboard() {
   const [showModal, setShowModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [students, setStudents] = useState<Student[]>([]);
-  const [allStudents, setAllStudents] = useState<Student[]>([]);
-  const [totalStudents, setTotalStudents] = useState(0);
-  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [dashboardStats, setDashboardStats] = useState({
-    totalStudents: 0,
-    averageSgpa: 0,
-    passingRate: 0,
-    excellenceRate: 0
-  });
-  const [sgpaDistribution, setSgpaDistribution] = useState({
-    excellent: 0,
-    verygood: 0,
-    good: 0,
-    improvement: 0
-  });
-  const [sgpaTrends, setSgpaTrends] = useState<{ semester: number; avg: number }[]>([]);
-  const [recentStudents, setRecentStudents] = useState<Student[]>([]);
+  const clientId = localStorage.getItem("clientId");
   const [addOrUpdate, setAddOrUpdate] = useState(true);
   const [deleteModal, setDeleteModal] = useState(false);
   const [semester, setSemester] = useState(0);
@@ -52,7 +35,7 @@ function ClientDashboard() {
   const [isUploadingCsv, setIsUploadingCsv] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [formData, setFormData] = useState({
-    clientEmail: localStorage.getItem("userEmail") || clientEmail,
+    clientId: clientId,
     rollNo: "",
     name: "",
     email: "",
@@ -71,16 +54,6 @@ function ClientDashboard() {
   const updateShowModal = () => {
     setShowModal(true);
     setAddOrUpdate(true);
-    setFormData({
-      clientEmail: localStorage.getItem("userEmail") || clientEmail,
-      rollNo: "",
-      name: "",
-      email: "",
-      role: "student",
-      semester: 0,
-      sgpa: 0,
-      oldEmail: ""
-    });
   }
 
   const [filterSemester, setFilterSemester] = useState<'all' | number>('all');
@@ -89,108 +62,35 @@ function ClientDashboard() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [tooltipData, setTooltipData] = useState<{ x: number; y: number; title: string; value: string } | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, filterSemester, filterSgpaRange, sortBy, sortOrder]);
+  const processedStudents = students
+    .filter(student => {
+      const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.rollNo.toLowerCase().includes(searchTerm.toLowerCase());
 
-  useEffect(() => {
-    const fetchAllStudents = async () => {
-      setIsLoadingStudents(true);
-      try {
-        const queryParams = `page=1&limit=100000000&search=&semester=all&sgpaRange=all&sortBy=rollNo&sortOrder=asc`;
+      const matchesSemester = filterSemester === 'all' || student.semester === Number(filterSemester);
 
-        const results = await Promise.allSettled([
-          fetch(`${VITE_RENDER_API_URL}/client/students/${localStorage.getItem("userEmail") || clientEmail}?${queryParams}`).then(async res => {
-            if (!res.ok) throw new Error();
-            return res.json();
-          }),
-          fetch(`${VITE_RAILWAY_API_URL}/client/students/${localStorage.getItem("userEmail") || clientEmail}?${queryParams}`).then(async res => {
-            if (!res.ok) throw new Error();
-            return res.json();
-          })
-        ]);
+      let matchesSgpa = true;
+      if (filterSgpaRange === 'excellent') matchesSgpa = student.sgpa >= 9.0;
+      else if (filterSgpaRange === 'verygood') matchesSgpa = student.sgpa >= 7.5 && student.sgpa < 9.0;
+      else if (filterSgpaRange === 'good') matchesSgpa = student.sgpa >= 6.0 && student.sgpa < 7.5;
+      else if (filterSgpaRange === 'improvement') matchesSgpa = student.sgpa < 6.0;
 
-        let renderStudentsList: Student[] = [];
-        let railwayStudentsList: Student[] = [];
-
-        if (results[0].status === "fulfilled") {
-          renderStudentsList = results[0].value.students || [];
-        }
-
-        if (results[1].status === "fulfilled") {
-          railwayStudentsList = results[1].value.students || [];
-        }
-
-        // Merge and de-duplicate by _id
-        const mergedMap = new Map<string, Student>();
-        [...renderStudentsList, ...railwayStudentsList].forEach(s => {
-          if (s && s._id) mergedMap.set(s._id, s);
-        });
-        const mergedList = Array.from(mergedMap.values());
-
-        setAllStudents(mergedList);
-      } catch (err: any) {
-        showToast("Failed to fetch student records.", "error");
-      } finally {
-        setIsLoadingStudents(false);
-      }
-    };
-    fetchAllStudents();
-  }, [refreshTrigger, clientEmail]);
-
-  useEffect(() => {
-    // 1. Filter locally
-    let filtered = [...allStudents];
-
-    if (searchTerm) {
-      const lowerSearch = searchTerm.toLowerCase();
-      filtered = filtered.filter(s =>
-        (s.name && s.name.toLowerCase().includes(lowerSearch)) ||
-        (s.rollNo && s.rollNo.toLowerCase().includes(lowerSearch))
-      );
-    }
-
-    if (filterSemester !== 'all') {
-      filtered = filtered.filter(s => Number(s.semester) === Number(filterSemester));
-    }
-
-    if (filterSgpaRange !== 'all') {
-      filtered = filtered.filter(s => {
-        if (filterSgpaRange === 'excellent') return s.sgpa >= 9.0;
-        if (filterSgpaRange === 'verygood') return s.sgpa >= 7.5 && s.sgpa < 9.0;
-        if (filterSgpaRange === 'good') return s.sgpa >= 6.0 && s.sgpa < 7.5;
-        if (filterSgpaRange === 'improvement') return s.sgpa < 6.0;
-        return true;
-      });
-    }
-
-    // 2. Sort locally
-    filtered.sort((a, b) => {
+      return matchesSearch && matchesSemester && matchesSgpa;
+    })
+    .sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'rollNo') {
-        comparison = (a.rollNo || '').localeCompare(b.rollNo || '');
+        comparison = a.rollNo.localeCompare(b.rollNo);
       } else if (sortBy === 'name') {
-        comparison = (a.name || '').localeCompare(b.name || '');
+        comparison = a.name.localeCompare(b.name);
       } else if (sortBy === 'semester') {
-        comparison = (Number(a.semester) || 0) - (Number(b.semester) || 0);
+        comparison = a.semester - b.semester;
       } else if (sortBy === 'sgpa') {
-        comparison = (Number(a.sgpa) || 0) - (Number(b.sgpa) || 0);
+        comparison = a.sgpa - b.sgpa;
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-
-    // 3. Paginate locally
-    setTotalStudents(filtered.length);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const pageStudents = filtered.slice(startIndex, startIndex + itemsPerPage);
-    setStudents(pageStudents);
-  }, [allStudents, searchTerm, filterSemester, filterSgpaRange, sortBy, sortOrder, currentPage, itemsPerPage]);
-
-  const totalPages = Math.ceil(totalStudents / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
 
   const handleNavClick = (section: string) => {
     setActiveSection(section)
@@ -231,79 +131,61 @@ function ClientDashboard() {
   }
 
   useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        const currentClientEmail = localStorage.getItem("userEmail") || clientEmail;
-        const [renderStudentsResponse, railwayStudentsResponse, renderClientResponse] = await Promise.all([
-          fetch(`${VITE_RENDER_API_URL}/client/students/${currentClientEmail}`).then(async res => {
-            if (!res.ok) throw new Error(await res.text());
-            return res.json();
-          }),
-          fetch(`${VITE_RAILWAY_API_URL}/client/students/${currentClientEmail}`).then(async res => {
-            if (!res.ok) throw new Error(await res.text());
-            return res.json();
-          }),
-          fetch(`${VITE_RENDER_API_URL}/client/dashboard/${currentClientEmail}`).then(async res => {
-            if (!res.ok) throw new Error(await res.text());
-            return res.json();
-          })
-        ]);
+    if (activeSection === "dashboard" || activeSection === "students" || activeSection === "settings") {
+      const fetchDashboard = async () => {
+        try {
+          const [renderRes, railwayRes] = await Promise.all([
+            fetch(`${VITE_RENDER_API_URL}/client/dashboard/${clientId}`),
+            fetch(`${VITE_RAILWAY_API_URL}/client/dashboard/${clientId}`)
+          ]);
 
-        const oddStudents = renderStudentsResponse.students || [];
-        const evenStudents = railwayStudentsResponse.students || [];
-        const mergedStudents = [...oddStudents, ...evenStudents];
-        const totalStudents = mergedStudents.length;
-        const averageSgpa = totalStudents > 0
-          ? mergedStudents.reduce((sum, student) => sum + Number(student.sgpa || 0), 0) / totalStudents
-          : 0;
-        const passingCount = mergedStudents.filter((student) => Number(student.sgpa || 0) >= 5).length;
-        const excellenceCount = mergedStudents.filter((student) => Number(student.sgpa || 0) >= 9).length;
+          const [renderData, railwayData] = await Promise.all([
+            renderRes.json(),
+            railwayRes.json()
+          ]);
 
-        setDashboardStats({
-          totalStudents,
-          averageSgpa,
-          passingRate: totalStudents > 0 ? Math.floor((passingCount / totalStudents) * 100) : 0,
-          excellenceRate: totalStudents > 0 ? Math.floor((excellenceCount / totalStudents) * 100) : 0
-        });
+          const renderStudents = renderData.data.students || [];
+          const railwayStudents = railwayData.data.students || [];
 
-        setSgpaDistribution(mergedStudents.reduce((acc, student) => {
-          const sgpa = Number(student.sgpa || 0);
-          if (sgpa >= 9) acc.excellent += 1;
-          else if (sgpa >= 7.5) acc.verygood += 1;
-          else if (sgpa >= 6) acc.good += 1;
-          else acc.improvement += 1;
-          return acc;
-        }, { excellent: 0, verygood: 0, good: 0, improvement: 0 }));
+          const allStudents = [
+            ...renderStudents,
+            ...railwayStudents
+          ];
 
-        const semesterMap = new Map<number, { total: number; count: number }>();
-        mergedStudents.forEach((student) => {
-          const semester = Number(student.semester);
-          const current = semesterMap.get(semester) || { total: 0, count: 0 };
-          current.total += Number(student.sgpa || 0);
-          current.count += 1;
-          semesterMap.set(semester, current);
-        });
-        setSgpaTrends(Array.from(semesterMap.entries())
-          .map(([semester, value]) => ({ semester, avg: value.count ? value.total / value.count : 0 }))
-          .sort((a, b) => a.semester - b.semester));
+          setStudents(allStudents);
 
-        setRecentStudents([...mergedStudents]
-          .sort((a, b) => (b._id || "").localeCompare(a._id || ""))
-          .slice(0, 3));
+          const clientInfo =
+            renderData.data.client ??
+            railwayData.data.client;
 
-        const clientInfo = renderClientResponse.data?.client;
-        if (clientInfo) {
-          setClientName(clientInfo.institutionName);
-          setClientEmail(clientInfo.email);
-          setClientExpiry(clientInfo.portalExpiryDate?.split("T")[0] || "");
-          localStorage.setItem("institutionName", clientInfo.institutionName);
+          if (clientInfo) {
+            setClientName(clientInfo.institutionName);
+            setClientEmail(clientInfo.email);
+            setClientExpiry(
+              clientInfo.portalExpiryDate?.split("T")[0] || ""
+            );
+
+            localStorage.setItem(
+              "institutionName",
+              clientInfo.institutionName
+            );
+          }
+
+          const totalSemesters = allStudents.reduce(
+            (acc: number, student: Student) =>
+              acc + student.semester,
+            0
+          );
+
+          setSemester(totalSemesters);
+
+        } catch (err: any) {
+          showToast(err.message, "error");
         }
-      } catch (err: any) {
-        showToast(err.message || "Failed to load dashboard data.", "error");
-      }
-    };
-    fetchDashboard();
-  }, [refreshTrigger]);
+      };
+      fetchDashboard();
+    }
+  }, [activeSection]);
 
   const validateForm = () => {
     const newErrors: {
@@ -355,7 +237,7 @@ function ClientDashboard() {
     }
     if (addOrUpdate) {
       const apiUrl =
-        convertLastChar(formData.rollNo) % 2 === 1
+        convertLastChar(formData.rollNo) % 2 === 0
           ? VITE_RENDER_API_URL
           : VITE_RAILWAY_API_URL;
 
@@ -364,10 +246,7 @@ function ClientDashboard() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...formData,
-          clientEmail: localStorage.getItem("userEmail") || clientEmail,
-        }),
+        body: JSON.stringify(formData),
       })
         .then(async (res) => {
           const data = await res.json();
@@ -379,8 +258,20 @@ function ClientDashboard() {
           return data;
         })
         .then((data) => {
+          setStudents(prev => {
+            const updated = [...prev, data.student];
+
+            setSemester(
+              updated.reduce(
+                (acc, student) => acc + student.semester,
+                0
+              )
+            );
+
+            return updated;
+          });
+
           showToast(data.message, "success");
-          setRefreshTrigger(prev => prev + 1);
         })
         .catch((err) => {
           showToast(err.message, "error");
@@ -388,7 +279,7 @@ function ClientDashboard() {
     }
     else {
       const apiUrl =
-        convertLastChar(formData.rollNo) % 2 === 1
+        convertLastChar(formData.rollNo) % 2 === 0
           ? VITE_RENDER_API_URL
           : VITE_RAILWAY_API_URL;
 
@@ -397,10 +288,7 @@ function ClientDashboard() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...formData,
-          clientEmail: localStorage.getItem("userEmail") || clientEmail,
-        }),
+        body: JSON.stringify(formData),
       })
         .then(async (res) => {
           const data = await res.json();
@@ -412,8 +300,26 @@ function ClientDashboard() {
           return data;
         })
         .then((data) => {
+          const newStudent: Student = data.student;
+
+          setStudents((prevStudents) => {
+            const updatedStudents = prevStudents.map((student) =>
+              student.email === formData.oldEmail
+                ? newStudent
+                : student
+            );
+
+            setSemester(
+              updatedStudents.reduce(
+                (acc, student) => acc + student.semester,
+                0
+              )
+            );
+
+            return updatedStudents;
+          });
+
           showToast(data.message, "success");
-          setRefreshTrigger(prev => prev + 1);
         })
         .catch((err) => {
           showToast(err.message, "error");
@@ -426,7 +332,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
   e.preventDefault();
 
   const apiUrl =
-    convertLastChar(formData.rollNo) % 2 === 1
+    convertLastChar(formData.rollNo) % 2 === 0
       ? VITE_RENDER_API_URL
       : VITE_RAILWAY_API_URL;
 
@@ -436,7 +342,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      clientEmail: localStorage.getItem("userEmail") || clientEmail,
+      clientId,
     }),
   })
     .then(async (res) => {
@@ -449,8 +355,25 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
       return data;
     })
     .then((data) => {
+      const deletedStudent: Student = data.student;
+
+      setStudents((prevStudents) => {
+        const updatedStudents = prevStudents.filter(
+          (student) =>
+            student.email !== deletedStudent.email
+        );
+
+        setSemester(
+          updatedStudents.reduce(
+            (acc, student) => acc + student.semester,
+            0
+          )
+        );
+
+        return updatedStudents;
+      });
+
       showToast(data.message, "success");
-      setRefreshTrigger(prev => prev + 1);
     })
     .catch((err) => {
       showToast(err.message, "error");
@@ -472,13 +395,9 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
       throw new Error("CSV must include a header row and at least one data row.");
     }
 
-    // Split headers, trim, handle surrounding quotes, and normalize roll_no/roll-no/rollno to rollno
+    // Split headers, trim, and handle surrounding quotes
     const headers = rows[0].split(",").map((header) => {
-      const cleanHeader = header.replace(/^["']|["']$/g, "").trim().toLowerCase();
-      if (cleanHeader === "roll_no" || cleanHeader === "roll-no") {
-        return "rollno";
-      }
-      return cleanHeader;
+      return header.replace(/^["']|["']$/g, "").trim().toLowerCase();
     });
 
     // Required column names must remain exactly as: rollNo, name, email, semester, sgpa
@@ -517,7 +436,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
       }
 
       return {
-        clientEmail: localStorage.getItem("userEmail") || clientEmail,
+        clientId,
         rollNo: getValue("rollNo"),
         name: getValue("name"),
         email: getValue("email"),
@@ -541,35 +460,43 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
       const csvText = await file.text();
       const studentsFromCsv = parseCsvRows(csvText);
 
-      const res = await fetch(`${VITE_RENDER_API_URL}/client/students/bulk`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Email": localStorage.getItem("userEmail") || clientEmail,
-          "X-User-Role": "client",
-        },
-        body: JSON.stringify({
-          clientEmail: localStorage.getItem("userEmail") || clientEmail,
-          students: studentsFromCsv,
-        }),
-      });
-      const data = await res.json();
+      const uploadResponses = await Promise.allSettled(
+        studentsFromCsv.map((student) =>
+          fetch(`${VITE_RENDER_API_URL}/client/students`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(student),
+          }).then(async (res) => {
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.message || `Failed to upload ${student.email}`);
+            }
+            return data.student as Student;
+          })
+        )
+      );
 
-      if (!res.ok && res.status !== 207) {
-        throw new Error(data.message || "Failed to upload CSV file.");
+      const successfulUploads = uploadResponses
+        .filter((result): result is PromiseFulfilledResult<Student> => result.status === 'fulfilled')
+        .map((result) => result.value);
+
+      if (successfulUploads.length > 0) {
+        setStudents((prev) => {
+          const updated = [...prev, ...successfulUploads];
+          const totalSemesters = updated.reduce((acc, student) => acc + student.semester, 0);
+          setSemester(totalSemesters);
+          return updated;
+        });
       }
 
-      const summary = data.summary || data.data?.summary;
-
-      if (summary?.successfullyUploaded > 0) {
-        setRefreshTrigger(prev => prev + 1);
-      }
-
-      if (!summary || summary.failedUploads === 0) {
-        showToast(`Uploaded ${summary?.successfullyUploaded ?? studentsFromCsv.length} students successfully.`, 'success');
+      const failedUploads = uploadResponses.filter((result) => result.status === 'rejected');
+      if (failedUploads.length === 0) {
+        showToast(`Uploaded ${successfulUploads.length} students successfully.`, 'success');
       } else {
         showToast(
-          `Uploaded ${summary.successfullyUploaded} student(s), failed ${summary.failedUploads}. Firestore: ${summary.firestoreCount}, MongoDB: ${summary.mongoDBCount}.`,
+          `Uploaded ${successfulUploads.length} student(s), failed ${failedUploads.length}.`,
           'error'
         );
       }
@@ -593,8 +520,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (clientPassword) {
       payload.password = clientPassword;
     }
-
-    fetch(`${VITE_RENDER_API_URL}/client/profile/${localStorage.getItem("userEmail") || clientEmail}`, {
+    fetch(`${VITE_RENDER_API_URL}/client/profile/${clientId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -604,9 +530,8 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
       body: JSON.stringify(payload),
     }).then(async (res) => {
       const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok)
         throw new Error(data.message || "Failed to update profile");
-      }
       return data;
     }).then((data) => {
       showToast("Profile settings updated successfully!", "success");
@@ -726,7 +651,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
                       <Users size={20} />
                     </div>
                   </div>
-                  <div className="stat-card-value">{dashboardStats.totalStudents}</div>
+                  <div className="stat-card-value">{students.length}</div>
                   <div className="stat-card-change positive">Registered in portal</div>
                 </div>
 
@@ -738,7 +663,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
                     </div>
                   </div>
                   <div className="stat-card-value">
-                    {dashboardStats.averageSgpa.toFixed(2)}
+                    {students.length > 0 ? (students.reduce((acc, s) => acc + s.sgpa, 0) / students.length).toFixed(2) : '0.00'}
                   </div>
                   <div className="stat-card-change">Across all semesters</div>
                 </div>
@@ -751,7 +676,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
                     </div>
                   </div>
                   <div className="stat-card-value">
-                    {dashboardStats.passingRate}%
+                    {students.length > 0 ? Math.floor((students.filter(s => s.sgpa >= 5.0).length / students.length) * 100) : 0}%
                   </div>
                   <div className="stat-card-change">SGPA &ge; 5.0</div>
                 </div>
@@ -764,7 +689,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
                     </div>
                   </div>
                   <div className="stat-card-value">
-                    {dashboardStats.excellenceRate}%
+                    {students.length > 0 ? Math.floor((students.filter(s => s.sgpa >= 9.0).length / students.length) * 100) : 0}%
                   </div>
                   <div className="stat-card-change">SGPA &ge; 9.0 (Outstanding)</div>
                 </div>
@@ -776,14 +701,14 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
                 <div className="chart-card">
                   <h3 className="chart-card-title">SGPA Distribution</h3>
                   <div className="chart-container">
-                    {dashboardStats.totalStudents === 0 ? (
+                    {students.length === 0 ? (
                       <div className="empty-state" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--color-text-muted)' }}>No student records found</div>
                     ) : (
                       (() => {
-                        const excellent = sgpaDistribution.excellent;
-                        const veryGood = sgpaDistribution.verygood;
-                        const good = sgpaDistribution.good;
-                        const improvement = sgpaDistribution.improvement;
+                        const excellent = students.filter(s => s.sgpa >= 9.0).length;
+                        const veryGood = students.filter(s => s.sgpa >= 7.5 && s.sgpa < 9.0).length;
+                        const good = students.filter(s => s.sgpa >= 6.0 && s.sgpa < 7.5).length;
+                        const improvement = students.filter(s => s.sgpa < 6.0).length;
 
                         const data = [
                           { label: 'O (9.0+)', count: excellent, color: '#22c55e' },
@@ -819,7 +744,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
                                           x: rect.left - parentRect.left + 15,
                                           y: rect.top - parentRect.top,
                                           title: bar.label,
-                                          value: `${bar.count} Student${bar.count !== 1 ? 's' : ''} (${((bar.count / (allStudents.length || students.length || 1)) * 100).toFixed(0)}%)`
+                                          value: `${bar.count} Student${bar.count !== 1 ? 's' : ''} (${((bar.count / students.length) * 100).toFixed(0)}%)`
                                         });
                                       }
                                     }}
@@ -872,11 +797,17 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
                 <div className="chart-card">
                   <h3 className="chart-card-title">Average SGPA Trend</h3>
                   <div className="chart-container">
-                    {dashboardStats.totalStudents === 0 ? (
+                    {students.length === 0 ? (
                       <div className="empty-state" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--color-text-muted)' }}>No trend data available</div>
                     ) : (
                       (() => {
-                        const semesterData = sgpaTrends;
+                        const semesterData = Array.from(new Set(students.map(s => s.semester)))
+                          .sort((a, b) => a - b)
+                          .map(sem => {
+                            const semStudents = students.filter(s => s.semester === sem);
+                            const avg = semStudents.reduce((acc, curr) => acc + curr.sgpa, 0) / semStudents.length;
+                            return { semester: sem, avg };
+                          });
 
                         const points = semesterData.map((d, i) => {
                           const x = semesterData.length > 1 ? 50 + (i / (semesterData.length - 1)) * 200 : 150;
@@ -979,7 +910,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {recentStudents.map((student) => (
+                    {processedStudents.slice(-3).map((student) => (
                       <tr key={student._id} className="clickable-row" onClick={() => setSelectedStudent(student)}>
                         <td style={{ fontWeight: 500 }}>{student.rollNo}</td>
                         <td>{student.name}</td>
@@ -1042,9 +973,9 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
                     <div className="upload-info">
                       <h4>CSV Format Requirements:</h4>
                       <ul>
-                        <li>Headers: rollNo (or roll_no), name, email, semester, sgpa</li>
+                        <li>Headers: roll_no, name, email, semester, sgpa, cgpa</li>
                         <li>All fields are required</li>
-                        <li>SGPA should be numeric (0-10 scale)</li>
+                        <li>SGPA and CGPA should be numeric (0-10 scale)</li>
                       </ul>
                     </div>
                   </div>
@@ -1121,12 +1052,9 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
                     onChange={(e) => setFilterSemester(e.target.value === 'all' ? 'all' : Number(e.target.value))}
                   >
                     <option value="all">All Semesters</option>
-                    {sgpaTrends.map(t => t.semester)
-                      .sort((a, b) => Number(a) - Number(b))
-                      .map(sem => (
-                        <option key={sem} value={sem}>Semester {sem}</option>
-                      ))
-                    }
+                    {Array.from(new Set(students.map(s => s.semester))).sort((a, b) => a - b).map(sem => (
+                      <option key={sem} value={sem}>Semester {sem}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -1179,7 +1107,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map((student) => (
+                  {processedStudents.map((student) => (
                     <tr
                       key={student._id}
                       className="clickable-row"
@@ -1206,47 +1134,6 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
                   ))}
                 </tbody>
               </table>
-
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="pagination" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'var(--spacing-md)', padding: '0 var(--spacing-sm)' }}>
-                  <div className="pagination-info" style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>
-                    {totalStudents > 0 ? (
-                      `Showing ${startIndex + 1} to ${Math.min(startIndex + itemsPerPage, totalStudents)} of ${totalStudents} students`
-                    ) : (
-                      'Showing 0 to 0 of 0 students'
-                    )}
-                  </div>
-                  <div className="pagination-buttons" style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                    <button
-                      className="btn btn-outline"
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', fontSize: '13px' }}
-                    >
-                      Previous
-                    </button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                      <button
-                        key={page}
-                        className={`btn ${currentPage === page ? 'btn-primary' : 'btn-outline'}`}
-                        onClick={() => setCurrentPage(page)}
-                        style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', fontSize: '13px', minWidth: '32px' }}
-                      >
-                        {page}
-                      </button>
-                    ))}
-                    <button
-                      className="btn btn-outline"
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', fontSize: '13px' }}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

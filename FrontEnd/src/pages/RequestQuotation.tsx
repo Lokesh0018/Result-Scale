@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast'
 // @ts-ignore: allow side-effect CSS import without type declarations
 import '../styles/request-quotation.css'
 
-const VITE_RAILWAY_API_URL = (import.meta as any).env.VITE_RAILWAY_API || (import.meta as any).env.VITE_RAILWAY_API_URL || 'http://localhost:3000';
+const VITE_RENDER_API_URL = (import.meta as any).env.VITE_RENDER_API_URL || 'http://localhost:3000';
 
 function RequestQuotation() {
   const { showToast } = useToast();
@@ -17,9 +17,11 @@ function RequestQuotation() {
   const [contactPerson, setContactPerson] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [studentCount, setStudentCount] = useState(100);
+  const [studentCount, setStudentCount] = useState(1000);
   const [accessDurationDays, setAccessDurationDays] = useState(7);
   const [expectedReleaseDate, setExpectedReleaseDate] = useState('');
+  const [otpRequired, setOtpRequired] = useState(true);
+  const [marksMemoRequired, setMarksMemoRequired] = useState(true);
 
   // Field Errors State
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -29,9 +31,11 @@ function RequestQuotation() {
     setContactPerson('');
     setEmail('');
     setPhone('');
-    setStudentCount(100);
+    setStudentCount(1000);
     setAccessDurationDays(7);
     setExpectedReleaseDate('');
+    setOtpRequired(true);
+    setMarksMemoRequired(true);
     setErrors({});
     showToast('Form cleared successfully', 'info');
   };
@@ -105,19 +109,19 @@ function RequestQuotation() {
 
     if (!institutionName.trim()) tempErrors.institutionName = 'Institution Name is required';
     if (!contactPerson.trim()) tempErrors.contactPerson = 'Contact Person is required';
-
+    
     if (!email.trim()) {
       tempErrors.email = 'Official Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       tempErrors.email = 'Please enter a valid email address';
     }
-
+    
     if (!phone.trim()) {
       tempErrors.phone = 'Phone Number is required';
     } else if (!/^[+]?[0-9\s-]{7,15}$/.test(phone)) {
       tempErrors.phone = 'Please enter a valid phone number (7-15 digits)';
     }
-
+    
     if (!expectedReleaseDate) {
       tempErrors.expectedReleaseDate = 'Expected Result Release Date is required';
     } else {
@@ -128,7 +132,7 @@ function RequestQuotation() {
         tempErrors.expectedReleaseDate = 'Release date cannot be in the past';
       }
     }
-
+    
     const students = Number(studentCount);
     if (isNaN(students) || students <= 0) {
       tempErrors.studentCount = 'Student count must be a positive number';
@@ -144,7 +148,7 @@ function RequestQuotation() {
   };
 
   // Calculations: ₹1.5 per student per day
-  const hostingCost = studentCount * accessDurationDays * 0.5;
+  const hostingCost = studentCount * accessDurationDays * 1.5;
   const otpCost = 0;
   const estimatedTotal = hostingCost;
 
@@ -164,10 +168,12 @@ function RequestQuotation() {
       studentCount: Number(studentCount),
       accessDurationDays: Number(accessDurationDays),
       expectedReleaseDate,
+      otpRequired,
+      marksMemoRequired,
     };
 
     try {
-      const response = await fetch(`${VITE_RAILWAY_API_URL}/contact/quotation-request`, {
+      const response = await fetch(`${VITE_RENDER_API_URL}/contact/quotation-request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -182,7 +188,7 @@ function RequestQuotation() {
 
       showToast('Quotation request submitted successfully!', 'success');
       setIsSubmitted(true);
-
+      
       if (data.request) {
         saveToLocalRequests(data.request);
       } else {
@@ -253,7 +259,7 @@ function RequestQuotation() {
             <div className="request-layout-grid">
               {/* Left Column: Form Details */}
               <form className="request-form-panel" onSubmit={handleSubmit}>
-
+                
                 {/* Section 1: Institution Details */}
                 <div className="request-form-card">
                   <div className="request-form-card-header">
@@ -370,31 +376,37 @@ function RequestQuotation() {
                     Additional Features (No Extra Cost)
                   </div>
                   <div className="request-form-card-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-                    <div
-                      className="feature-toggle-card selected"
+                    <div 
+                      className={`feature-toggle-card ${otpRequired ? 'selected' : ''}`}
+                      onClick={() => setOtpRequired(!otpRequired)}
                     >
                       <div className="feature-toggle-info">
                         <span className="feature-toggle-name">Email OTP Verification</span>
                         <span className="feature-toggle-desc">Students verify via secure code</span>
                       </div>
-                      <input
-                        type="radio"
-                        className="feature-toggle-switch"
-                        checked={true}
+                      <input 
+                        type="checkbox" 
+                        className="feature-toggle-switch" 
+                        checked={otpRequired}
+                        onChange={(e) => setOtpRequired(e.target.checked)}
+                        onClick={(e) => e.stopPropagation()}
                       />
                     </div>
 
-                    <div
-                      className="feature-toggle-card selected"
+                    <div 
+                      className={`feature-toggle-card ${marksMemoRequired ? 'selected' : ''}`}
+                      onClick={() => setMarksMemoRequired(!marksMemoRequired)}
                     >
                       <div className="feature-toggle-info">
                         <span className="feature-toggle-name">Marks Memo Downloads</span>
                         <span className="feature-toggle-desc">Allow students to download PDF results</span>
                       </div>
-                      <input
-                        type="radio"
-                        className="feature-toggle-switch"
-                        checked={true}
+                      <input 
+                        type="checkbox" 
+                        className="feature-toggle-switch" 
+                        checked={marksMemoRequired}
+                        onChange={(e) => setMarksMemoRequired(e.target.checked)}
+                        onClick={(e) => e.stopPropagation()}
                       />
                     </div>
                   </div>
@@ -430,15 +442,15 @@ function RequestQuotation() {
 
                       <div className="summary-item">
                         <span className="summary-item-label">OTP Verification:</span>
-                        <span className="summary-item-value" style={{ color: '#10B981', fontWeight: 600 }}>
-                          Included / Free
+                        <span className="summary-item-value" style={{ color: otpRequired ? '#10B981' : 'var(--color-text-muted)', fontWeight: 600 }}>
+                          {otpRequired ? 'Included / Free' : 'Excluded'}
                         </span>
                       </div>
 
                       <div className="summary-item">
                         <span className="summary-item-label">Marks Memo Download:</span>
-                        <span className="summary-item-value" style={{ color: '#10B981', fontWeight: 600 }}>
-                          Included
+                        <span className="summary-item-value" style={{ color: marksMemoRequired ? '#10B981' : 'var(--color-text-muted)', fontWeight: 600 }}>
+                          {marksMemoRequired ? 'Included' : 'Excluded'}
                         </span>
                       </div>
 

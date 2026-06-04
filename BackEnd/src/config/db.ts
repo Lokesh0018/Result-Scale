@@ -1,50 +1,38 @@
 import mongoose from "mongoose";
-import Client from "../models/Client";
-import Student from "../models/Student";
-import ActivityLog from "../models/ActivityLog";
-import { env } from "./env";
+import dns from "dns";
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
-const dropUnexpectedUniqueIndexes = async () => {
-    const uniqueIndexesToKeep: Record<string, Set<string>> = {
-        Client: new Set(["_id_", "email_1"]),
-        Student: new Set(["_id_", "email_1", "clientEmail_1_rollNo_1"]),
-    };
+const MAX_RETRIES = 5;
+const RETRY_DELAY_MS = 3000;
 
-    const models = [Client, Student];
-
-    for (const model of models) {
-        try {
-            const indexes = await model.collection.indexes();
-            const allowedUniqueIndexes = uniqueIndexesToKeep[model.modelName] || new Set(["_id_"]);
-
-            await Promise.all(
-                indexes
-                    .filter((index) => index.unique && !allowedUniqueIndexes.has(index.name || ""))
-                    .map((index) => {
-                        console.warn(`Dropping stale unique index ${index.name} on ${model.collection.name}`);
-                        return model.collection.dropIndex(index.name as string);
-                    })
-            );
-        } catch (error) {
-            console.error(`Failed to inspect/drop stale indexes for ${model.modelName}:`, error);
-        }
+const connectDB = async (retries = MAX_RETRIES): Promise<void> => {
+    if (!process.env.MONGO_URI) {
+        console.error("FATAL: MONGO_URI environment variable is not set.");
+        process.exit(1);
     }
-};
-
-const connectDB = async () => {
     try {
-        if (!env.mongoUri) {
-            throw new Error("MONGO_URI is not configured");
-        }
-
-        await mongoose.connect(env.mongoUri);
-        await dropUnexpectedUniqueIndexes();
-        await Promise.all([Client.syncIndexes(), Student.syncIndexes(), ActivityLog.syncIndexes()]);
-
+        await mongoose.connect(process.env.MONGO_URI, {
+            serverSelectionTimeoutMS: 5000,
+        });
         console.log("MongoDB Connected");
+
+        mongoose.connection.on("error", (err) => {
+            console.error("MongoDB connection error:", err);
+        });
+
+        mongoose.connection.on("disconnected", () => {
+            console.warn("MongoDB disconnected. Attempting to reconnect...");
+            setTimeout(() => connectDB(MAX_RETRIES), RETRY_DELAY_MS);
+        });
+
     } catch (error) {
-        console.error("MongoDB connection error:", error);
-        if (process.env.NODE_ENV === "production") {
+        console.error(`MongoDB connection failed (${MAX_RETRIES - retries + 1}/${MAX_RETRIES}):`, error);
+        if (retries > 1) {
+            console.log(`Retrying in ${RETRY_DELAY_MS / 1000}s...`);
+            await new Promise((res) => setTimeout(res, RETRY_DELAY_MS));
+            return connectDB(retries - 1);
+        } else {
+            console.error("FATAL: Could not connect to MongoDB after maximum retries. Exiting.");
             process.exit(1);
         }
     }

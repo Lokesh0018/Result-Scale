@@ -3,7 +3,6 @@ import Client from "../models/Client";
 import Student from "../models/Student";
 import Inquiry from "../models/Inquiry";
 import QuotationRequest from "../models/QuotationRequest";
-import { env } from "../config/env";
 
 export const GetDashboard = async () => {
     return await Client.find().lean();
@@ -18,23 +17,16 @@ export const AddClient = async (
     logoUrl?: string,
     isActive?: boolean
 ) => {
-    const normalizedEmail = email.toLowerCase();
-    const existingClient = await Client.findOne({ email: normalizedEmail });
+    const existingClient = await Client.findOne({ email });
 
     if (existingClient)
-        throw new Error(`Already Exists with Email ${normalizedEmail}`);
+        throw new Error(`Already Exists with Email ${email}`);
 
-    if (isNaN(portalExpiryDate.getTime()))
-        throw new Error("Invalid portal expiry date !");
-
-    // Allow setting the expiry date to today by comparing against the start of today
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    if (portalExpiryDate.getTime() < startOfToday.getTime())
+    if (portalExpiryDate.getTime() < Date.now())
         throw new Error("Date was Expired !");
 
     const client = await Client.create({
-        email: normalizedEmail,
+        email,
         password,
         role: "client",
         institutionName,
@@ -46,10 +38,7 @@ export const AddClient = async (
     });
 
     const { password: _password, ...clientDto } = client.toObject();
-    return {
-        ...clientDto,
-        _id: client._id.toString()
-    };
+    return clientDto;
 }
 
 export const UpdateClient = async (
@@ -62,27 +51,20 @@ export const UpdateClient = async (
     logoUrl?: string,
     isActive?: boolean
 ) => {
-    const normalizedOldEmail = oldEmail.toLowerCase();
-    const normalizedEmail = email.toLowerCase();
-    const client = await Client.findOne({ email: normalizedOldEmail });
+    const client = await Client.findOne({ email: oldEmail });
     if (!client)
         throw new Error("Client not found !");
     
-    if (normalizedOldEmail !== normalizedEmail) {
-        const existingClient = await Client.findOne({ email: normalizedEmail });
+    if (oldEmail !== email) {
+        const existingClient = await Client.findOne({ email });
         if (existingClient)
-            throw new Error(`Already Exists with Email ${normalizedEmail}`);
+            throw new Error(`Already Exists with Email ${email}`);
     }
 
-    if (isNaN(portalExpiryDate.getTime()))
-        throw new Error("Invalid portal expiry date !");
-
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    if (portalExpiryDate.getTime() < startOfToday.getTime())
+    if (portalExpiryDate.getTime() < Date.now())
         throw new Error("Date was Expired !");
 
-    client.email = normalizedEmail;
+    client.email = email;
     client.password = password;
     client.institutionName = institutionName;
     client.portalExpiryDate = portalExpiryDate;
@@ -98,43 +80,17 @@ export const UpdateClient = async (
     await client.save();
 
     const { password: _password, ...clientDto } = client.toObject();
-    return {
-        ...clientDto,
-        _id: client._id.toString()
-    };
+    return clientDto;
 }
 
 export const DeleteClient = async (email: string) => {
-    const normalizedEmail = email.toLowerCase();
-    const existingClient = await Client.findOne({ email: normalizedEmail });
+    const existingClient = await Client.findOne({ email });
     if (!existingClient)
         throw new Error("Client not found !");
-    
-    // Delete Client from Firestore (local on Render)
-    await Client.deleteOne({ email: normalizedEmail });
-
-    // Delete odd students locally on Render and even students on Railway using Promise.all
-    try {
-        await Promise.all([
-            Student.deleteMany({ clientEmail: normalizedEmail }),
-            fetch(`${env.railwayApiUrl}/client/internal/delete-students/${normalizedEmail}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" }
-            }).then(async (res) => {
-                if (!res.ok) {
-                    console.error(`Railway deletion failed: ${res.statusText}`);
-                }
-            })
-        ]);
-    } catch (err) {
-        console.error("Error deleting client students across databases:", err);
-    }
-
+    await Client.deleteOne({ email });
+    await Student.deleteMany({clientId:existingClient.id});
     const { password: _password, ...clientDto } = existingClient.toObject();
-    return {
-        ...clientDto,
-        _id: existingClient._id.toString()
-    };
+    return clientDto;
 }
 
 export const GetStudents = async () => {

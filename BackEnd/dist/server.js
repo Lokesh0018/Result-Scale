@@ -4,34 +4,53 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const dotenv_1 = __importDefault(require("dotenv"));
+dotenv_1.default.config();
 const cors_1 = __importDefault(require("cors"));
 const db_1 = __importDefault(require("./config/db"));
-const env_1 = require("./config/env");
-const renderAdminRoutes_1 = require("./routes/renderAdminRoutes");
-const railwayAdminRoutes_1 = require("./routes/railwayAdminRoutes");
+const adminRoutes_1 = require("./routes/adminRoutes");
 const clientRoutes_1 = require("./routes/clientRoutes");
 const studentRoutes_1 = require("./routes/studentRoutes");
 const contactRoutes_1 = require("./routes/contactRoutes");
-const activityLogRoutes_1 = require("./routes/activityLogRoutes");
-const apiResponse_1 = require("./utils/apiResponse");
 const app = (0, express_1.default)();
-const serverType = env_1.env.serverType;
+const allowedOrigins = [
+    "https://resultscale.web.app",
+    "https://resultscale.firebaseapp.com",
+    "http://localhost:5173",
+    "http://localhost:4173",
+];
 app.use((0, cors_1.default)({
-    origin: env_1.env.corsOrigins,
+    origin: (origin, callback) => {
+        // Allow requests with no origin (e.g. mobile apps, curl)
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        }
+        else {
+            callback(new Error(`CORS: Origin '${origin}' not allowed`));
+        }
+    },
     credentials: true,
 }));
-app.use(express_1.default.json());
+app.use(express_1.default.json({ limit: "1mb" }));
+// Health check
+app.get("/health", (_req, res) => {
+    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
 (0, db_1.default)();
-app.use("/admin", serverType === "railway" ? railwayAdminRoutes_1.router : renderAdminRoutes_1.router);
+const PORT = process.env.PORT || 3000;
+app.use("/admin", adminRoutes_1.router);
 app.use("/client", clientRoutes_1.router);
 app.use("/student", studentRoutes_1.router);
 app.use("/contact", contactRoutes_1.router);
-app.use("/activity-logs", activityLogRoutes_1.router);
-app.use((req, res) => (0, apiResponse_1.sendFailure)(res, 404, "Route not found"));
-app.use((err, req, res, _next) => {
-    console.error("Unhandled API error:", err);
-    return (0, apiResponse_1.sendFailure)(res, 500, "Internal Server Error", { message: err.message });
+// 404 handler
+app.use((_req, res) => {
+    res.status(404).json({ success: false, message: "Route not found" });
 });
-app.listen(env_1.env.port, () => {
-    console.log(`${serverType === "railway" ? "Railway" : "Render"} server running on port ${env_1.env.port}`);
+// Global error handler
+app.use((err, _req, res, _next) => {
+    console.error("Unhandled error:", err);
+    res.status(500).json({ success: false, message: "Internal server error" });
+});
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
