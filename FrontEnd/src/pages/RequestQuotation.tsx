@@ -148,7 +148,7 @@ function RequestQuotation() {
   };
 
   // Calculations: ₹1.5 per student per day
-  const hostingCost = studentCount * accessDurationDays * 1.5;
+  const hostingCost = studentCount * accessDurationDays * 0.5;
   const otpCost = 0;
   const estimatedTotal = hostingCost;
 

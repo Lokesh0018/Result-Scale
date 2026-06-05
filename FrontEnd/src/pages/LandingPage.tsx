@@ -391,7 +391,7 @@ function LandingPage() {
           <div className="pricing-card popular">
             <span className="popular-badge">Pay-As-You-Go</span>
             <div className="pricing-name">Standard Plan</div>
-            <div className="pricing-price">₹1.50<span>/student/day</span></div>
+            <div className="pricing-price">₹0.50<span>/student/day</span></div>
             <p className="pricing-description">Perfect for institutions of all sizes. Pay only for the scale and duration you need.</p>
             <div className="pricing-features">
               <div className="pricing-feature">

@@ -22,7 +22,7 @@ const GetDashboard = async (identifier) => {
     if (!client)
         throw new Error("Client not found !");
     const students = await Student_1.default.find({
-        clientId: client._id
+        clientEmail: client.email
     }).lean();
     return {
         students,
@@ -54,7 +54,7 @@ const UpdateStudent = async (oldEmail, identifier, name, email, rollNo, semester
     const client = await findClientByIdentifier(identifier);
     if (!client)
         throw new Error("Client not found !");
-    const student = await Student_1.default.findOne({ email: oldEmail, clientId: client._id });
+    const student = await Student_1.default.findOne({ email: oldEmail, clientEmail: client.email });
     if (!student)
         throw new Error("Student not found !");
     if (oldEmail !== email) {
@@ -75,12 +75,12 @@ const DeleteStudent = async (email, identifier) => {
     const client = await findClientByIdentifier(identifier);
     if (!client)
         throw new Error("Client not found !");
-    const existingStudent = await Student_1.default.findOne({ email, clientId: client._id });
+    const existingStudent = await Student_1.default.findOne({ email, clientEmail: client.email });
     if (!existingStudent)
         throw new Error("Student not found !");
     await Student_1.default.deleteOne({
         email,
-        clientId: client._id
+        clientEmail: client.email
     });
     await Client_1.default.findByIdAndUpdate(client._id, { $inc: { students: -1 } });
     return existingStudent;
@@ -90,7 +90,7 @@ const GetStudents = async (identifier) => {
     const client = await findClientByIdentifier(identifier);
     if (!client)
         throw new Error("Client not found !");
-    return await Student_1.default.find({ clientId: client._id }).lean();
+    return await Student_1.default.find({ clientEmail: client.email }).lean();
 };
 exports.GetStudents = GetStudents;
 const UpdatePassword = async (email, password) => {
@@ -118,7 +118,7 @@ const UpdateProfile = async (identifier, institutionName, email, password) => {
         client.password = password;
     }
     await client.save();
-    await Student_1.default.updateMany({ clientId: client._id }, { institutionName });
+    await Student_1.default.updateMany({ clientEmail: client.email }, { institutionName });
     const { password: _password, ...clientDto } = client.toObject();
     return clientDto;
 };

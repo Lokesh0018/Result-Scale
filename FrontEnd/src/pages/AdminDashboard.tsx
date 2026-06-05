@@ -34,12 +34,12 @@ function AdminDashboard() {
 
 
   const [clients, setClients] = useState<Client[]>([]);
-  const [activeClients, setActiveClients] = useState<Client[]>([]);
   const [renderClients, setRenderClients] = useState<Client[]>([]);
   const [railwayClients, setRailwayClients] = useState<Client[]>([]);
   const [renderStudents, setRenderStudents] = useState(0);
   const [railwayStudents, setRailwayStudents] = useState(0);
-  const [expired, setExpired] = useState(0);
+  const activeClients = clients.filter(c => c.status === 'active');
+  const expired = clients.filter(c => c.status === 'expired').length;
   const [formData, setFormData] = useState({
     institutionName: "",
     email: "",
@@ -614,6 +614,9 @@ function AdminDashboard() {
   useEffect(() => {
 
     const fetchClients = async () => {
+      let renderClientsList: Client[] = [];
+      let railwayClientsList: Client[] = [];
+
       try {
         const renderRes = await fetch(
           `${VITE_RENDER_API_URL}/admin/dashboard`
@@ -625,14 +628,14 @@ function AdminDashboard() {
 
         const renderData = await renderRes.json();
 
-        const renderClients: Client[] = (renderData.data || []).map(
+        renderClientsList = (renderData.data || []).map(
           (user: any, index: number) => ({
             id: index + 1,
             _id: user._id,
             institutionName: user.institutionName,
             email: user.email,
             students: user.students,
-            status: "active",
+            status: user.portalExpiryDate && new Date(user.portalExpiryDate).getTime() < Date.now() ? "expired" : "active",
             portalExpiryDate: user.portalExpiryDate
               ? user.portalExpiryDate.split("T")[0]
               : "",
@@ -641,8 +644,8 @@ function AdminDashboard() {
             isActive: user.isActive,
           })
         );
-        setRenderClients(renderClients);
-        setRenderStudents(renderClients.reduce((acc, client) => acc + client.students, 0) || 0);
+        setRenderClients(renderClientsList);
+        setRenderStudents(renderClientsList.reduce((acc, client) => acc + client.students, 0) || 0);
       } catch (err: any) {
         showToast(
           err.message || "Failed to load Render clients.",
@@ -661,14 +664,14 @@ function AdminDashboard() {
 
         const railwayData = await railwayRes.json();
 
-        const railwayClients: Client[] = (railwayData.data || []).map(
+        railwayClientsList = (railwayData.data || []).map(
           (user: any, index: number) => ({
             id: index + 1,
             _id: user._id,
             institutionName: user.institutionName,
             email: user.email,
             students: user.students,
-            status: "active",
+            status: user.portalExpiryDate && new Date(user.portalExpiryDate).getTime() < Date.now() ? "expired" : "active",
             portalExpiryDate: user.portalExpiryDate
               ? user.portalExpiryDate.split("T")[0]
               : "",
@@ -678,23 +681,23 @@ function AdminDashboard() {
           })
         );
 
-        setRailwayClients(railwayClients);
-        setRailwayStudents(railwayClients.reduce((acc, client) => acc + client.students, 0) || 0);
+        setRailwayClients(railwayClientsList);
+        setRailwayStudents(railwayClientsList.reduce((acc, client) => acc + client.students, 0) || 0);
       } catch (err: any) {
         showToast(
           err.message || "Failed to load Railway clients.",
           "error"
         );
       }
-      setClients(mergeClientsByEmail(renderClients, railwayClients));
+      setClients(mergeClientsByEmail(renderClientsList, railwayClientsList));
     };
 
-    if (activeSection === "dashboard" || activeSection === "clients" || activeSection === "logs") {
+    if (activeSection === "dashboard" || activeSection === "clients") {
       fetchClients();
       fetchStudents();
     }
 
-    if (activeSection === "logs") {
+    if (activeSection === "dashboard" || activeSection === "logs") {
       fetchLogs();
     }
 

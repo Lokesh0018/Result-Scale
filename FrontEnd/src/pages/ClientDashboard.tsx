@@ -135,7 +135,7 @@ function ClientDashboard() {
       const fetchDashboard = async () => {
         try {
           const results = await Promise.allSettled([
-            fetch(`${VITE_RENDER_API_URL}/client/dashboard/${localStorage.getItem("clientId") || localStorage.getItem("userEmail") || clientEmail}`).then(async res => {
+            fetch(`${VITE_RENDER_API_URL}/client/dashboard/${localStorage.getItem("userEmail") || clientEmail}`).then(async res => {
               if (!res.ok) throw new Error(await res.text());
               return res.json();
             }),
@@ -261,8 +261,7 @@ function ClientDashboard() {
     if (addOrUpdate) {
       const apiUrl =
         convertLastChar(formData.rollNo) % 2 === 0
-          ? VITE_RENDER_API_URL
-          : VITE_RAILWAY_API_URL;
+          ? VITE_RAILWAY_API_URL : VITE_RENDER_API_URL;
 
       fetch(`${apiUrl}/client/students`, {
         method: "POST",
@@ -307,8 +306,7 @@ function ClientDashboard() {
     else {
       const apiUrl =
         convertLastChar(formData.rollNo) % 2 === 0
-          ? VITE_RENDER_API_URL
-          : VITE_RAILWAY_API_URL;
+          ? VITE_RAILWAY_API_URL : VITE_RENDER_API_URL;
 
       fetch(`${apiUrl}/client/students/${formData.oldEmail}`, {
         method: "PUT",
@@ -364,8 +362,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
 
   const apiUrl =
     convertLastChar(formData.rollNo) % 2 === 0
-      ? VITE_RENDER_API_URL
-      : VITE_RAILWAY_API_URL;
+      ? VITE_RAILWAY_API_URL : VITE_RENDER_API_URL;
 
   fetch(`${apiUrl}/client/students/${formData.oldEmail}`, {
     method: "DELETE",
@@ -496,8 +493,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
       const uploadResponses = await Promise.allSettled(
         studentsFromCsv.map((student) => {
           const apiUrl = convertLastChar(student.rollNo) % 2 === 0
-          ? VITE_RENDER_API_URL
-          : VITE_RAILWAY_API_URL;
+          ? VITE_RAILWAY_API_URL : VITE_RENDER_API_URL;
           return fetch(`${apiUrl}/client/students`, {
             method: "POST",
             headers: {
