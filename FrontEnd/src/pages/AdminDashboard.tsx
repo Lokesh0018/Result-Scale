@@ -792,9 +792,7 @@ function AdminDashboard() {
           isActive: railwayData.client.isActive,
         };
 
-        const updatedClients = mergeClientsByEmail([renderClient], [railwayClient]);
-
-        setClients(updatedClients);
+        setClients(prev => mergeClientsByEmail([...prev, renderClient], [...prev, railwayClient]));
 
         showToast("Client added successfully", "success");
       } catch (err: any) {

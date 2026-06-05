@@ -59,7 +59,6 @@ function StudentResult() {
             <div className="result-info-item">
               <span className="result-info-label">Program</span>
               <span className="result-info-value">B.Tech</span>
-              <span className="result-info-value">B.Tech</span>
             </div>
             <div className="result-info-item">
               <span className="result-info-label">Semester</span>
