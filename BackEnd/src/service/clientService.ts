@@ -32,7 +32,7 @@ export const AddStudent = async (identifier: string, name: string, email: string
     if (!client)
         throw new Error("Client not found !");
     const student = await Student.create({
-        clientId: client._id,
+        clientEmail: identifier,
         name,
         email,
         rollNo,

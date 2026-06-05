@@ -38,7 +38,7 @@ const AddStudent = async (identifier, name, email, rollNo, semester, sgpa) => {
     if (!client)
         throw new Error("Client not found !");
     const student = await Student_1.default.create({
-        clientId: client._id,
+        clientEmail: identifier,
         name,
         email,
         rollNo,

@@ -17,7 +17,7 @@ export interface IClient extends IAdmin {
 }
 
 export interface IStudent extends Document {
-    clientId: mongoose.Types.ObjectId,
+    clientEmail: string,
     name: string,
     rollNo: string,
     email: string,

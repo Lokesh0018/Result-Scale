@@ -32,16 +32,11 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-const Client_1 = __importDefault(require("./Client"));
 const studentSchema = new mongoose_1.Schema({
-    clientId: {
-        type: mongoose_1.Schema.Types.ObjectId,
-        ref: Client_1.default,
+    clientEmail: {
+        type: String,
         required: true,
         index: true,
     },

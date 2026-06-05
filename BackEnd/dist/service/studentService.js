@@ -48,7 +48,7 @@ const VerifyStudentLogin = async (email, rollNo, clientEmail) => {
         throw new Error("Student not found!");
     if (student.rollNo !== rollNo)
         throw new Error("Invalid credentials");
-    const client = await Client_1.default.findById(student.clientId);
+    const client = await Client_1.default.findById(student.clientEmail);
     if (!client || !client.isActive) {
         throw new Error("Portal Access Expired !");
     }
