@@ -75,8 +75,7 @@ function VerifyOTP() {
     try {
       const apiUrl =
         convertLastChar(rollNo) % 2 === 0
-          ? VITE_RENDER_API_URL
-          : VITE_RAILWAY_API_URL;
+          ? VITE_RAILWAY_API_URL : VITE_RENDER_API_URL;
 
       const res = await fetch(
         `${apiUrl}/student/verify-otp`,
@@ -122,8 +121,7 @@ function VerifyOTP() {
     try {
       const apiUrl =
         convertLastChar(rollNo) % 2 === 0
-          ? VITE_RENDER_API_URL
-          : VITE_RAILWAY_API_URL;
+          ? VITE_RAILWAY_API_URL : VITE_RENDER_API_URL;
 
       const res = await fetch(`${apiUrl}/student/login`, {
         method: "POST",

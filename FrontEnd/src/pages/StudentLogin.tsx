@@ -116,8 +116,7 @@ function StudentLogin() {
 
     const apiUrl =
       convertLastChar(formData.rollNo) % 2 === 0
-        ? VITE_RENDER_API_URL
-        : VITE_RAILWAY_API_URL;
+        ? VITE_RAILWAY_API_URL : VITE_RENDER_API_URL;
 
     fetch(`${apiUrl}/student/login`, {
       method: "POST",
