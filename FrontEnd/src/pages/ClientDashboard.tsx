@@ -42,7 +42,9 @@ function ClientDashboard() {
     role: "student",
     semester: 0,
     sgpa: 0,
-    oldEmail: ""
+    oldEmail: "",
+    oldRollNo: "",
+    source: ""
   });
   const [errors, setErrors] = useState<{
     institutionName?: string,
@@ -113,8 +115,17 @@ function ClientDashboard() {
     else {
       setDeleteModal(true);
     }
-    handleInputChange("rollNo",student.rollNo);
-    handleInputChange("oldEmail", student.email);
+    setFormData(prev => ({
+      ...prev,
+      rollNo: student.rollNo,
+      name: student.name,
+      email: student.email,
+      semester: student.semester,
+      sgpa: student.sgpa,
+      oldEmail: student.email,
+      oldRollNo: student.rollNo,
+      source: (student as any).source || ""
+    }));
   }
 
   function convertLastChar(str: string): number {
@@ -151,7 +162,7 @@ function ClientDashboard() {
           let partialFailure = false;
 
           if (results[0].status === "fulfilled") {
-            renderStudents = results[0].value.data?.students || [];
+            renderStudents = (results[0].value.data?.students || []).map((s: any) => ({ ...s, source: 'render' }));
             clientInfo = clientInfo || results[0].value.data?.client;
           } else {
             console.error("Render database dashboard load failed:", results[0].reason);
@@ -159,7 +170,7 @@ function ClientDashboard() {
           }
 
           if (results[1].status === "fulfilled") {
-            railwayStudents = results[1].value.data?.students || [];
+            railwayStudents = (results[1].value.data?.students || []).map((s: any) => ({ ...s, source: 'railway' }));
             clientInfo = clientInfo || results[1].value.data?.client;
           } else {
             console.error("Railway database dashboard load failed:", results[1].reason);
@@ -285,7 +296,7 @@ function ClientDashboard() {
         })
         .then((data) => {
           setStudents(prev => {
-            const updated = [...prev, data.student];
+            const updated = [...prev, { ...data.student, source: convertLastChar(formData.rollNo) % 2 === 0 ? 'railway' : 'render' }];
 
             setSemester(
               updated.reduce(
@@ -304,9 +315,10 @@ function ClientDashboard() {
         });
     }
     else {
-      const apiUrl =
-        convertLastChar(formData.rollNo) % 2 === 0
-          ? VITE_RAILWAY_API_URL : VITE_RENDER_API_URL;
+      const apiUrl = formData.source === 'render' ? VITE_RENDER_API_URL :
+                     formData.source === 'railway' ? VITE_RAILWAY_API_URL :
+                     convertLastChar(formData.oldRollNo) % 2 === 0
+                       ? VITE_RAILWAY_API_URL : VITE_RENDER_API_URL;
 
       fetch(`${apiUrl}/client/students/${formData.oldEmail}`, {
         method: "PUT",
@@ -329,7 +341,7 @@ function ClientDashboard() {
           return data;
         })
         .then((data) => {
-          const newStudent: Student = data.student;
+          const newStudent: Student = { ...data.student, source: formData.source || (convertLastChar(formData.oldRollNo) % 2 === 0 ? 'railway' : 'render') };
 
           setStudents((prevStudents) => {
             const updatedStudents = prevStudents.map((student) =>
@@ -360,9 +372,10 @@ function ClientDashboard() {
 const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
   e.preventDefault();
 
-  const apiUrl =
-    convertLastChar(formData.rollNo) % 2 === 0
-      ? VITE_RAILWAY_API_URL : VITE_RENDER_API_URL;
+  const apiUrl = formData.source === 'render' ? VITE_RENDER_API_URL :
+                 formData.source === 'railway' ? VITE_RAILWAY_API_URL :
+                 convertLastChar(formData.oldRollNo) % 2 === 0
+                   ? VITE_RAILWAY_API_URL : VITE_RENDER_API_URL;
 
   fetch(`${apiUrl}/client/students/${formData.oldEmail}`, {
     method: "DELETE",
@@ -1023,7 +1036,7 @@ const deleteStudent = (e: React.MouseEvent<HTMLButtonElement>) => {
                     <div className="upload-info">
                       <h4>CSV Format Requirements:</h4>
                       <ul>
-                        <li>Headers: roll_no, name, email, semester, sgpa, cgpa</li>
+                        <li>Headers: rollNo, name, email, semester, sgpa, cgpa</li>
                         <li>All fields are required</li>
                         <li>SGPA and CGPA should be numeric (0-10 scale)</li>
                       </ul>

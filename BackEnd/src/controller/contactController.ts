@@ -129,7 +129,7 @@ export const submitQuotationRequest = async (req: Request, res: Response) => {
     }
 
     // Calculations based on ₹1.5 per student per day of portal access
-    const hostingCost = students * durationDays * 1.5;
+    const hostingCost = students * durationDays * 0.5;
     const otpCost = 0; // OTP is included at no extra cost
     const estimatedTotal = hostingCost;
 

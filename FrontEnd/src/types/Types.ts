@@ -8,7 +8,8 @@ export type Client = {
     portalExpiryDate: string,
     institutionType?: string,
     logoUrl?: string,
-    isActive?: boolean
+    isActive?: boolean,
+    source?: string
 }
 
 export type Student = {

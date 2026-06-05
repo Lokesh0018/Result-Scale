@@ -49,7 +49,7 @@ const generateOtp = (): string => {
 };
 
 export const VerifyStudentLogin = async (email: string, rollNo: string, clientEmail?: string) => {
-    const student = await Student.findOne({ email });
+    const student = await Student.findOne({ email: email.toLowerCase() });
 
     if (!student)
         throw new Error("Student not found!");
@@ -94,7 +94,7 @@ export const VerifyStudentLogin = async (email: string, rollNo: string, clientEm
 
 export const VerifyOtp = async (email: string, otp: string) => {
 
-    const student = await Student.findOne({ email });
+    const student = await Student.findOne({ email: email.toLowerCase() });
 
     if (!student)
         throw new Error("Student not found!");

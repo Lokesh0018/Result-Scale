@@ -43,7 +43,7 @@ const generateOtp = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
 };
 const VerifyStudentLogin = async (email, rollNo, clientEmail) => {
-    const student = await Student_1.default.findOne({ email });
+    const student = await Student_1.default.findOne({ email: email.toLowerCase() });
     if (!student)
         throw new Error("Student not found!");
     if (student.rollNo !== rollNo)
@@ -71,7 +71,7 @@ const VerifyStudentLogin = async (email, rollNo, clientEmail) => {
 };
 exports.VerifyStudentLogin = VerifyStudentLogin;
 const VerifyOtp = async (email, otp) => {
-    const student = await Student_1.default.findOne({ email });
+    const student = await Student_1.default.findOne({ email: email.toLowerCase() });
     if (!student)
         throw new Error("Student not found!");
     if (!student.otpExpiry ||

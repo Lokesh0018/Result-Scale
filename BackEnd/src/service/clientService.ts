@@ -25,7 +25,7 @@ export const GetDashboard = async (identifier: string) => {
 };
 
 export const AddStudent = async (identifier: string, name: string, email: string, rollNo: string, semester: number, sgpa: number) => {
-    const existingStudent = await Student.findOne({ email });
+    const existingStudent = await Student.findOne({ email: email.toLowerCase() });
     if (existingStudent)
         throw new Error(`Already Exists with Email ${email}`);
     const client = await findClientByIdentifier(identifier);
@@ -34,7 +34,7 @@ export const AddStudent = async (identifier: string, name: string, email: string
     const student = await Student.create({
         clientEmail: identifier,
         name,
-        email,
+        email: email.toLowerCase(),
         rollNo,
         institutionName: client.institutionName,
         semester,
@@ -48,19 +48,19 @@ export const UpdateStudent = async (oldEmail: string, identifier: string, name: 
     const client = await findClientByIdentifier(identifier);
     if (!client)
         throw new Error("Client not found !");
-    const student = await Student.findOne({ email: oldEmail, clientEmail: client.email });
+    const student = await Student.findOne({ email: oldEmail.toLowerCase(), clientEmail: client.email });
 
     if (!student)
         throw new Error("Student not found !");
 
-    if (oldEmail !== email) {
-        const existingStudent = await Student.findOne({ email });
+    if (oldEmail.toLowerCase() !== email.toLowerCase()) {
+        const existingStudent = await Student.findOne({ email: email.toLowerCase() });
         if (existingStudent)
             throw new Error(`Already Exists with Email ${email}`);
     }
 
     student.name = name;
-    student.email = email;
+    student.email = email.toLowerCase();
     student.rollNo = rollNo;
     student.semester = semester;
     student.sgpa = sgpa;
@@ -74,12 +74,12 @@ export const DeleteStudent = async (email: string, identifier: string) => {
     const client = await findClientByIdentifier(identifier);
     if (!client)
         throw new Error("Client not found !");
-    const existingStudent = await Student.findOne({ email, clientEmail: client.email });
+    const existingStudent = await Student.findOne({ email: email.toLowerCase(), clientEmail: client.email });
     if (!existingStudent)
         throw new Error("Student not found !");
 
     await Student.deleteOne({
-        email,
+        email: email.toLowerCase(),
         clientEmail: client.email
     });
 

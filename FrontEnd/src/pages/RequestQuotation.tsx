@@ -147,7 +147,7 @@ function RequestQuotation() {
     return Object.keys(tempErrors).length === 0;
   };
 
-  // Calculations: ₹1.5 per student per day
+  // Calculations: ₹0.5 per student per day
   const hostingCost = studentCount * accessDurationDays * 0.5;
   const otpCost = 0;
   const estimatedTotal = hostingCost;
@@ -507,7 +507,7 @@ function RequestQuotation() {
                   <ShieldCheck size={28} style={{ color: '#059669', flexShrink: 0 }} />
                   <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', lineHeight: '1.4' }}>
                     <strong style={{ color: 'var(--color-text)' }}>Transparent Pricing</strong><br />
-                    Billing is flat at ₹1.5 per student per day of portal access. Mandatory secure OTP email verification is included at no extra charge.
+                    Billing is flat at ₹0.5 per student per day of portal access. Mandatory secure OTP email verification is included at no extra charge.
                   </div>
                 </div>
               </div>
